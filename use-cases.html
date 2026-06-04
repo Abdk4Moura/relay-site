@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Relay · Use cases</title>
+<meta name="description" content="What people use Relay for: typing on TVs, fixing PCs that won't boot, couch control, presenting, AI agent bodies, and fleets." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%2365EA92'/><rect x='11' y='11' width='10' height='10' rx='3' fill='%230E0E12'/></svg>" />
+<link rel="stylesheet" href="styles.css" />
+<script src="app.js"></script>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap nav">
+    <a class="brand" href="index.html">
+      <span class="logo-mark"></span>
+      Relay
+    </a>
+    <nav class="nav-links">
+      <a href="use-cases.html" class="active">Use cases</a>
+      <a href="docs.html">Documentation</a>
+      <a href="pricing.html">Pricing</a>
+      <a href="blog.html">Blog</a>
+    </nav>
+    <div class="nav-spacer"></div>
+    <div class="nav-right">
+      <button class="theme-btn" data-theme-btn aria-label="Toggle theme"></button>
+      <a href="docs.html" class="btn sm">Download</a>
+    </div>
+    <button class="menu-btn" data-menu-btn aria-label="Menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+  </div>
+</header>
+<div class="mobile-menu" data-mobile-menu>
+  <a href="use-cases.html">Use cases</a>
+  <a href="docs.html">Documentation</a>
+  <a href="pricing.html">Pricing</a>
+  <a href="blog.html">Blog</a>
+  <a href="docs.html" class="btn primary">Download</a>
+</div>
+
+<section class="page-head">
+  <div class="wrap">
+    <div class="kicker accent">Use cases</div>
+    <h1 class="display">One device. The reach of a keyboard, a remote, and a crash cart.</h1>
+    <p class="lead">Practical at home, serious in the rack, and a new kind of tool for agents. Here is what people actually do with Relay.</p>
+  </div>
+</section>
+
+<section class="section-pad-sm">
+  <div class="wrap">
+
+    <!-- 01 -->
+    <div class="scenario">
+      <div class="sc-meta">
+        <div class="sc-k"><span class="kicker">01 · Living room</span></div>
+        <h2>Type on your TV.</h2>
+        <p>Searching a streaming app one letter at a time with a D-pad is the worst input method ever shipped. Point Relay at the TV and type in your search, your password, your account email, with a real keyboard.</p>
+        <p class="muted">Works over Bluetooth with nothing installed on the TV, or out-of-band on sets that lock you out.</p>
+      </div>
+      <div class="sc-art">
+        <svg width="200" height="150" viewBox="0 0 200 150" fill="none">
+          <rect x="40" y="20" width="120" height="76" rx="5" stroke="var(--line-strong)" stroke-width="1.6"/>
+          <path d="M88 96h24l4 14H84z" stroke="var(--line-strong)" stroke-width="1.6"/>
+          <rect x="58" y="38" width="84" height="13" rx="3" stroke="var(--accent)" stroke-width="1.4"/>
+          <path d="M64 44h40" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/>
+          <rect x="150" y="104" width="30" height="42" rx="6" fill="var(--accent-tint)" stroke="var(--accent)" stroke-width="1.4"/>
+          <path d="M156 138h18" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- 02 -->
+    <div class="scenario flip">
+      <div class="sc-meta">
+        <div class="sc-k"><span class="kicker">02 · Rescue</span></div>
+        <h2>Fix a PC that won't even boot.</h2>
+        <p>The machine is stuck at the BIOS, or sitting at a login screen, or the OS is dead. Remote desktop is useless here because there is nothing for it to run inside. Relay's out-of-band mode taps the video and emulates a keyboard, so you can drive the firmware itself from your phone.</p>
+        <p class="muted">A Raspberry Pi with a capture card today. Our AI-KVM dongle later.</p>
+      </div>
+      <div class="sc-art">
+        <svg width="200" height="150" viewBox="0 0 200 150" fill="none">
+          <rect x="22" y="34" width="92" height="62" rx="5" stroke="var(--line-strong)" stroke-width="1.6"/>
+          <path d="M34 50h30M34 60h46M34 70h22" stroke="var(--red)" stroke-width="1.6" stroke-linecap="round"/>
+          <rect x="138" y="44" width="44" height="60" rx="6" fill="var(--accent-tint)" stroke="var(--accent)" stroke-width="1.4"/>
+          <path d="M114 64c14 0 16-8 24-8" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="3 3"/>
+          <path d="M114 80c14 0 16 8 24 8" stroke="var(--accent)" stroke-width="1.5"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- 03 -->
+    <div class="scenario">
+      <div class="sc-meta">
+        <div class="sc-k"><span class="kicker">03 · Media PC</span></div>
+        <h2>Couch control your media PC.</h2>
+        <p>The box under the TV does not need a wireless keyboard balanced on the armrest. Relay gives you a trackpad, a full keyboard, and the live screen on your phone, so you can scrub, search, and launch from across the room.</p>
+      </div>
+      <div class="sc-art">
+        <svg width="200" height="150" viewBox="0 0 200 150" fill="none">
+          <rect x="30" y="26" width="140" height="80" rx="6" stroke="var(--line-strong)" stroke-width="1.6"/>
+          <rect x="74" y="116" width="52" height="6" rx="3" stroke="var(--line-strong)" stroke-width="1.4"/>
+          <rect x="78" y="46" width="44" height="58" rx="8" fill="var(--accent-tint)" stroke="var(--accent)" stroke-width="1.4"/>
+          <rect x="86" y="54" width="28" height="30" rx="3" stroke="var(--accent)" stroke-width="1.2"/>
+          <path d="M92 94h16" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- 04 -->
+    <div class="scenario flip">
+      <div class="sc-meta">
+        <div class="sc-k"><span class="kicker">04 · On stage</span></div>
+        <h2>Present without a clicker.</h2>
+        <p>Your slides advance from your phone, your speaker notes sit in your palm, and a tap moves you forward. No dongle to lose, no batteries to forget, no walking back to the laptop.</p>
+      </div>
+      <div class="sc-art">
+        <svg width="200" height="150" viewBox="0 0 200 150" fill="none">
+          <rect x="26" y="26" width="100" height="64" rx="5" stroke="var(--line-strong)" stroke-width="1.6"/>
+          <path d="M44 44h64M44 56h40" stroke="var(--line-strong)" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="M76 90v18M58 108h36" stroke="var(--line-strong)" stroke-width="1.4" stroke-linecap="round"/>
+          <rect x="150" y="60" width="30" height="44" rx="6" fill="var(--accent-tint)" stroke="var(--accent)" stroke-width="1.4"/>
+          <path d="M165 78l6 6-6 6" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- 05 -->
+    <div class="scenario">
+      <div class="sc-meta">
+        <div class="sc-k"><span class="kicker accent">05 · Agents</span></div>
+        <h2>A body for your AI agent.</h2>
+        <p>Computer-use agents can reason about a screen, but they need a way to reach machines they were never installed inside. Relay is that body. Through MCP, an agent sees the live screen and acts with real keyboard and mouse, even at the BIOS or on a box with no OS at all.</p>
+        <p class="muted">This is the mode that makes Relay more than a convenience. It is infrastructure for the agent era.</p>
+      </div>
+      <div class="sc-art">
+        <svg width="200" height="150" viewBox="0 0 200 150" fill="none">
+          <rect x="22" y="50" width="56" height="50" rx="10" fill="var(--accent-tint)" stroke="var(--accent)" stroke-width="1.5"/>
+          <path d="M38 70h.01M62 70h.01M50 40v10M38 100v8M62 100v8" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M84 75h34" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#a)"/>
+          <rect x="124" y="48" width="56" height="54" rx="6" stroke="var(--line-strong)" stroke-width="1.6"/>
+          <path d="M134 62h36M134 74h24" stroke="var(--line-strong)" stroke-width="1.4" stroke-linecap="round"/>
+          <defs><marker id="a" markerWidth="9" markerHeight="9" refX="6" refY="4.5" orient="auto"><path d="M0 0 L8 4.5 L0 9z" fill="var(--accent)"/></marker></defs>
+        </svg>
+      </div>
+    </div>
+
+    <!-- 06 -->
+    <div class="scenario flip">
+      <div class="sc-meta">
+        <div class="sc-k"><span class="kicker">06 · Team</span></div>
+        <h2>Run a fleet from one screen.</h2>
+        <p>Racks of machines, kiosks across sites, lab boxes that never run the same OS twice. Relay gives your team one device directory with roles and an audit log, so any machine is one tap away and every action is accounted for.</p>
+        <p class="muted">Available on the Team plan.</p>
+      </div>
+      <div class="sc-art">
+        <svg width="200" height="150" viewBox="0 0 200 150" fill="none">
+          <rect x="30" y="24" width="60" height="40" rx="5" stroke="var(--line-strong)" stroke-width="1.5"/>
+          <rect x="110" y="24" width="60" height="40" rx="5" stroke="var(--line-strong)" stroke-width="1.5"/>
+          <rect x="30" y="86" width="60" height="40" rx="5" stroke="var(--line-strong)" stroke-width="1.5"/>
+          <rect x="110" y="86" width="60" height="40" rx="5" fill="var(--accent-tint)" stroke="var(--accent)" stroke-width="1.5"/>
+          <circle cx="140" cy="106" r="4" fill="var(--accent)"/>
+        </svg>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section class="final">
+  <div class="wrap-narrow">
+    <h2 class="display">Find your machine in the list above?</h2>
+    <p class="lead">Start free on your own network.</p>
+    <div class="cta">
+      <a href="docs.html" class="btn primary">Download<svg class="arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      <a href="pricing.html" class="btn">See pricing</a>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a class="brand" href="index.html">
+          <span class="logo-mark"></span>
+          Relay
+        </a>
+        <p>Remote control for the machines remote control can't reach.</p>
+      </div>
+      <div><h5>Product</h5><a href="use-cases.html">Use cases</a><a href="pricing.html">Pricing</a><a href="docs.html">Download</a></div>
+      <div><h5>Develop</h5><a href="docs.html">Documentation</a><a href="docs.html#guides">DIY guides</a><a href="docs.html#protocol">Wire protocol</a></div>
+      <div><h5>Company</h5><a href="blog.html">Blog</a><a href="blog.html">Research</a></div>
+    </div>
+    <div class="footer-bottom">
+      <span class="mono">relay.autumated.com</span>
+      <span class="mono">© 2026 Relay</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
