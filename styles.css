@@ -240,6 +240,20 @@ section{ position:relative; }
 .dl-all{ margin-top:14px; }
 @media (max-width:640px){ .dl-grid{ grid-template-columns:1fr; } }
 
+/* ---- email capture (pricing) ---- */
+.cap-wrap .cap{ display:none; }
+.cap-wrap.is-open > [data-capture]{ display:none; }
+.cap-wrap.is-open .cap{ display:flex; gap:8px; align-items:center; }
+.cap-email{ flex:1; min-width:0; height:46px; padding:0 14px; font-family:var(--font-ui); font-size:15px;
+  color:var(--text); background:var(--e1); border:1px solid var(--border); border-radius:var(--r-md); transition:.15s; }
+.cap-email::placeholder{ color:var(--text-4); }
+.cap-email:focus{ outline:none; border-color:var(--accent); background:var(--e2); }
+.cap .btn{ flex:0 0 auto; }
+.cap-thanks{ display:flex; align-items:center; gap:9px; margin-bottom:18px; padding:12px 16px;
+  border:1px solid var(--accent-line, var(--border)); background:var(--accent-ghost); border-radius:var(--r-md);
+  font-size:14.5px; color:var(--text); }
+.cap-thanks .ck{ color:var(--accent); font-weight:600; }
+
 /* ---- pricing ---- */
 .tiers{ display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
 .tiers.four{ grid-template-columns:repeat(4,1fr); gap:14px; }
