@@ -495,68 +495,120 @@
   };
 
   SIG["uc-agent"] = function (c, dim) {
-    var NODES = ["see", "decide", "act"];
-    return function (t) {
-      var D = dim(), W = D.W, H = D.H;
+    /* a real session you watch: an MCP-driven cursor works a tiny UI by
+       itself, with the actual tool call shown beside it */
+    var PH = [
+      { d: 1.2, call: "moveto 118,46" },
+      { d: 0.35, call: "click left" },
+      { d: 0.95, call: 'type "rel"' },
+      { d: 1.0, call: "moveto 212,46" },
+      { d: 0.35, call: "click left" },
+      { d: 1.3, call: null }
+    ];
+    var pi = 0, pt = 0, typed = 0, cx = 24, cy = 70, sx = 24, sy = 70, clickR = -9;
+    return function (t, dt) {
+      var D = dim(), W = D.W, H = D.H, K = DK;
       c.clearRect(0, 0, W, H);
-      var y = H * 0.42, x0 = 16, x1 = W - 16;
-      var xs = NODES.map(function (_, i) { return lerp(x0 + 26, x1 - 26, i / (NODES.length - 1)); });
-      c.strokeStyle = P.border; c.lineWidth = 1.2;
-      c.beginPath(); c.moveTo(xs[0], y); c.lineTo(xs[2], y); c.stroke();
-      c.setLineDash([3, 4]);
-      c.beginPath(); c.moveTo(xs[2], y + 12); c.quadraticCurveTo(W / 2, H + 16, xs[0], y + 12); c.stroke();
-      c.setLineDash([]);
-      var per = 3.2, ph = (t % per) / per;
-      var qx, qy;
-      if (ph < 0.55) { var f = ez(ph / 0.55); qx = lerp(xs[0], xs[2], f); qy = y; }
-      else { var g2 = ez((ph - 0.55) / 0.45); var u = 1 - g2;
-        qx = u * u * xs[2] + 2 * u * g2 * (W / 2) + g2 * g2 * xs[0];
-        qy = u * u * (y + 12) + 2 * u * g2 * (H + 16) + g2 * g2 * (y + 12); }
-      for (var i = 0; i < NODES.length; i++) {
-        var near = ph < 0.55 && Math.abs(lerp(xs[0], xs[2], ez(ph / 0.55)) - xs[i]) < 14;
-        c.fillStyle = near ? P.ghost : P.e2;
-        c.strokeStyle = near ? P.acc : P.borderHi; c.lineWidth = 1.2;
-        rr(c, xs[i] - 24, y - 12, 48, 24, 7); c.fill(); c.stroke();
-        mono(c, 9.5, near ? P.acc : P.t2, "center");
-        c.fillText(NODES[i], xs[i], y + 0.5);
+      pt += dt;
+      if (pt >= PH[pi].d) {
+        pt = 0; pi = (pi + 1) % PH.length;
+        sx = cx; sy = cy;
+        if (pi === 0) { typed = 0; sx = cx = 24; sy = cy = H * 0.75; }
+        if (PH[pi].call === "click left") clickR = 0;
       }
-      glowDot(c, P, qx, qy, 2.8);
-      mono(c, 8.5, P.t4, "center");
-      c.fillText("MCP · a body on a real machine", W / 2, 12);
+      if (clickR >= 0) clickR += dt;
+
+      var sw = Math.min(W * 0.72, 205), sh = H - 16;
+      c.fillStyle = K.e2; c.strokeStyle = K.borderHi; c.lineWidth = 1.2;
+      rr(c, 0, 4, sw, sh, 8); c.fill(); c.stroke();
+      c.fillStyle = K.e0; rr(c, 4, 14, sw - 8, sh - 18, 5); c.fill();
+      c.fillStyle = K.t4;
+      c.beginPath(); c.arc(11, 9.5, 1.8, 0, TAU); c.arc(18, 9.5, 1.8, 0, TAU); c.fill();
+      mono(c, 8, K.t4, "right"); c.fillText("agent session", sw - 8, 9.5);
+
+      // the tiny UI it drives: a field and a GO button
+      var fx = 14, fy = sh * 0.46, fw = sw * 0.5, fh = 18;
+      var bx = fx + fw + 10, bw2 = 34;
+      var done = pi === 5;
+      c.fillStyle = K.e1; c.strokeStyle = K.border; c.lineWidth = 1;
+      rr(c, fx, fy, fw, fh, 4); c.fill(); c.stroke();
+      if (pi === 2) typed = clamp(Math.ceil(3 * pt / PH[2].d), 0, 3);
+      mono(c, 9.5, K.acc, "left");
+      c.fillText("rel".slice(0, typed), fx + 7, fy + fh / 2 + 0.5);
+      c.fillStyle = done ? K.ghost : K.e1; c.strokeStyle = done ? K.acc : K.border;
+      rr(c, bx, fy, bw2, fh, 4); c.fill(); c.stroke();
+      mono(c, 8.5, done ? K.acc : K.t3, "center");
+      c.fillText("GO", bx + bw2 / 2, fy + fh / 2 + 0.5);
+
+      // the cursor, moving like a hand (eased, slightly curved)
+      var txx = (pi <= 2 ? fx + fw * 0.4 : bx + bw2 / 2), tyy = fy + fh / 2 + 4;
+      if (pi === 0 || pi === 3) {
+        var f = ez(pt / PH[pi].d);
+        cx = lerp(sx, txx, f);
+        cy = lerp(sy, tyy, f) - Math.sin(f * Math.PI) * 10;
+      } else { cx = txx; cy = tyy; }
+      if (clickR >= 0 && clickR < 0.45) {
+        c.strokeStyle = K.acc; c.globalAlpha = 1 - clickR / 0.45; c.lineWidth = 1.2;
+        c.beginPath(); c.arc(cx, cy, 3 + clickR * 40, 0, TAU); c.stroke(); c.globalAlpha = 1;
+      }
+      c.fillStyle = K.text;
+      c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx + 7.5, cy + 8); c.lineTo(cx + 3.2, cy + 8.3); c.lineTo(cx + 1.3, cy + 11.8); c.closePath(); c.fill();
+
+      // the tool call that caused it, on the card edge (like the HID bytes)
+      mono(c, 8.5, P.t4, "left"); c.fillText("MCP \u2192", sw + 12, H / 2 - 18);
+      var call = PH[pi].call;
+      if (call) {
+        mono(c, 8.5, P.acc, "left");
+        var tw2 = c.measureText(call).width;
+        c.fillStyle = P.e1; c.strokeStyle = P.line; c.lineWidth = 1;
+        rr(c, sw + 10, H / 2 - 9, Math.min(tw2 + 12, W - sw - 12), 18, 5); c.fill(); c.stroke();
+        c.fillStyle = P.acc; c.fillText(call, sw + 16, H / 2 + 0.5);
+      }
     };
   };
 
   SIG["uc-fleet"] = function (c, dim) {
+    /* a real device directory: hostnames, live dots, latencies ticking,
+       one machine joining and dropping off */
+    var ROWS = [
+      { n: "popos", on: 1, ms: 9 },
+      { n: "mediapc", on: 1, ms: 14 },
+      { n: "lab-3", on: 1, ms: 22 },
+      { n: "kiosk", on: 0, ms: 31 }
+    ];
     return function (t) {
-      var D = dim(), W = D.W, H = D.H;
+      var D = dim(), W = D.W, H = D.H, K = DK;
       c.clearRect(0, 0, W, H);
-      var cols = 4, rows = 2, gw = 10, gh = 10;
-      var bw = Math.min((W * 0.7 - gw * (cols - 1)) / cols, 44), bh = (H - 26 - gh) / rows;
-      var per = 4.2, lit = Math.floor(((t % per) / per) * (cols * rows + 2));
-      var x0 = 2, y0 = 8;
-      var on = 0;
-      for (var r = 0; r < rows; r++) for (var q = 0; q < cols; q++) {
-        var i = r * cols + q;
-        var x = x0 + q * (bw + gw), y = y0 + r * (bh + gh);
-        var isOn = i < lit;
-        if (isOn) on++;
-        c.fillStyle = isOn ? P.ghost : P.e2;
-        c.strokeStyle = isOn ? P.line : P.border; c.lineWidth = 1.1;
-        rr(c, x, y, bw, bh, 5); c.fill(); c.stroke();
-        if (isOn) {
-          c.strokeStyle = P.acc; c.lineWidth = 1.6; c.lineCap = "round";
-          c.beginPath(); c.moveTo(x + bw / 2 - 5, y + bh / 2); c.lineTo(x + bw / 2 - 1, y + bh / 2 + 4); c.lineTo(x + bw / 2 + 6, y + bh / 2 - 4); c.stroke();
-        } else {
-          c.fillStyle = P.t4; c.beginPath(); c.arc(x + bw / 2, y + bh / 2, 1.6, 0, TAU); c.fill();
+      var kioskOn = (t % 6) > 3;
+      var pw = Math.min(W * 0.92, 250), ph2 = H - 12;
+      c.fillStyle = K.e0; c.strokeStyle = K.borderHi; c.lineWidth = 1.2;
+      rr(c, 0, 6, pw, ph2, 8); c.fill(); c.stroke();
+      mono(c, 8, K.t4, "left"); c.fillText("DEVICES", 12, 18);
+      mono(c, 8, K.t4, "right"); c.fillText((3 + (kioskOn ? 1 : 0)) + "/4 up", pw - 12, 18);
+      var n = ROWS.length, step = (ph2 - 32) / n;
+      for (var i = 0; i < n; i++) {
+        var r = ROWS[i];
+        var on = r.on === 1 || (i === 3 && kioskOn);
+        var ry = 31 + i * step + step / 2 - 4;
+        if (i === 3) {
+          var k = (t % 6) - 3;
+          if (k >= 0 && k < 0.6) {
+            c.fillStyle = K.ghost; c.globalAlpha = 1 - k / 0.6;
+            rr(c, 6, ry - 7, pw - 12, 14, 3); c.fill(); c.globalAlpha = 1;
+          }
         }
+        if (on) {
+          c.fillStyle = K.acc;
+          c.globalAlpha = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(t * 2.4 + i * 2));
+          c.beginPath(); c.arc(15, ry, 2.4, 0, TAU); c.fill(); c.globalAlpha = 1;
+        } else {
+          c.strokeStyle = K.t4; c.lineWidth = 1.1;
+          c.beginPath(); c.arc(15, ry, 2.2, 0, TAU); c.stroke();
+        }
+        mono(c, 9.5, on ? K.t2 : K.t4, "left"); c.fillText(r.n, 26, ry);
+        var ms = on ? (r.ms + Math.round(Math.sin(t * 1.7 + i * 9) * 2)) + " ms" : "offline";
+        mono(c, 9, on ? K.acc : K.t4, "right"); c.fillText(ms, pw - 12, ry);
       }
-      var rx = x0 + cols * (bw + gw) + 6;
-      mono(c, 9.5, P.t3, "left");
-      c.fillText(Math.min(on, cols * rows) + "/" + (cols * rows), rx, H * 0.38);
-      mono(c, 8.5, P.t4, "left");
-      c.fillText("reachable", rx, H * 0.38 + 14);
-      mono(c, 8.5, P.t4, "left");
-      c.fillText("one directory", x0, H - 4);
     };
   };
 
