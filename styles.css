@@ -94,10 +94,10 @@ button{ font-family:inherit; cursor:pointer; border:none; background:none; color
 .amb-vignette{ position:absolute; inset:0;
   background:radial-gradient(120% 120% at 50% 35%, transparent 52%, oklch(0.10 0.006 265 / 0.55) 100%); }
 
-[data-theme="light"] .amb-blob.b1{ background:radial-gradient(circle at 50% 50%, oklch(0.60 0.16 var(--hue) / 0.07), transparent 66%); }
-[data-theme="light"] .amb-blob.b2{ background:radial-gradient(circle at 50% 50%, oklch(0.55 0.02 265 / 0.07), transparent 70%); }
-[data-theme="light"] .amb-blob.b3{ background:radial-gradient(circle at 50% 50%, oklch(0.60 0.16 var(--hue) / 0.05), transparent 64%); }
-[data-theme="light"] .amb-grain{ opacity:.035; mix-blend-mode:multiply; }
+[data-theme="light"] .amb-blob.b1{ background:radial-gradient(circle at 50% 50%, oklch(0.60 0.16 var(--hue) / 0.11), transparent 66%); }
+[data-theme="light"] .amb-blob.b2{ background:radial-gradient(circle at 50% 50%, oklch(0.55 0.02 265 / 0.09), transparent 70%); }
+[data-theme="light"] .amb-blob.b3{ background:radial-gradient(circle at 50% 50%, oklch(0.60 0.16 var(--hue) / 0.08), transparent 64%); }
+[data-theme="light"] .amb-grain{ opacity:.06; mix-blend-mode:multiply; }
 [data-theme="light"] .amb-vignette{ background:radial-gradient(120% 120% at 50% 35%, transparent 60%, oklch(0.55 0.01 265 / 0.10) 100%); }
 
 @media (prefers-reduced-motion: no-preference){
@@ -352,3 +352,13 @@ section{ position:relative; }
 .sig-mode{ height:clamp(225px,28vw,265px); }
 .uc-vig{ height:96px; }
 @media (max-width:700px){ .uc-vig{ height:88px; } .hero-live .sig{ height:230px; } }
+
+/* screens are dark glass: the instrument panels keep the dark deck in light mode */
+[data-theme="light"] .hero-live,
+[data-theme="light"] .mode-art{
+  background:oklch(0.165 0.008 265);
+  border-color:oklch(0.28 0.010 265);
+}
+@media (max-width:700px){
+  .mode-art{ padding:16px; }
+}
