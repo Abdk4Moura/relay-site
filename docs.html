@@ -29,7 +29,7 @@
     <div class="nav-spacer"></div>
     <div class="nav-right">
       <button class="theme-btn" data-theme-btn aria-label="Toggle theme"></button>
-      <a href="#start" class="btn sm">Download</a>
+      <a href="#download" class="btn sm">Download</a>
     </div>
     <button class="menu-btn" data-menu-btn aria-label="Menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
   </div>
@@ -39,7 +39,7 @@
   <a href="docs.html">Documentation</a>
   <a href="pricing.html">Pricing</a>
   <a href="blog.html">Blog</a>
-  <a href="#start" class="btn primary">Download</a>
+  <a href="#download" class="btn primary">Download</a>
 </div>
 
 <section class="page-head">
@@ -57,6 +57,7 @@
     <aside class="docs-side">
       <div class="grp">
         <h6>Start here</h6>
+        <a href="#download">Download</a>
         <a href="#start">Getting started</a>
         <a href="#modes">The two modes</a>
         <a href="#security">Security model</a>
@@ -77,6 +78,57 @@
 
     <!-- main -->
     <article class="docs-main">
+
+      <h2 id="download">Download</h2>
+      <p>The desktop receiver is the open-source piece that runs on the machine you want to control. Grab the build for your platform, then follow getting started below. All builds are unsigned for now, so your OS may warn on first launch.</p>
+
+      <div class="dl-grid">
+
+        <div class="dl-card">
+          <div class="dl-os">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="13" rx="1.5"/><path d="M8 21h8M12 17v4"/></svg>
+            <span>Linux</span>
+          </div>
+          <div class="dl-meta mono">x86_64 · static musl · v0.9.2</div>
+          <p>uinput receiver, works under X11 and Wayland. No glibc or runtime deps.</p>
+          <a class="btn primary sm" href="https://github.com/Abdk4Moura/relay-desktop/releases/latest/download/relay-desktop-x86_64-linux">Download binary</a>
+          <a class="dl-sub mono" href="https://github.com/Abdk4Moura/relay-desktop/releases/latest/download/relay-desktop-x86_64-linux.sha256">sha256</a>
+        </div>
+
+        <div class="dl-card is-soon">
+          <div class="dl-os">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="13" rx="1.5"/><path d="M2 20h20"/></svg>
+            <span>Windows</span>
+          </div>
+          <div class="dl-meta mono">SendInput receiver</div>
+          <p>Builds from the same source today. A prebuilt installer is on the way.</p>
+          <span class="dl-soon mono">Coming soon</span>
+          <a class="dl-sub mono" href="https://github.com/Abdk4Moura/relay-desktop#build-from-source">build from source</a>
+        </div>
+
+        <div class="dl-card is-soon">
+          <div class="dl-os">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 7c0-2 1.5-4 4-4 0 2.5-2 4-4 4zM6 21c-2-1-3-5-3-8 0-3 2-5 4-5 1.5 0 2.5 1 4 1s2.5-1 4-1c2 0 4 2 4 5 0 3-1 7-3 8-1 .5-2-.5-5-.5s-4 1-5 .5z"/></svg>
+            <span>macOS</span>
+          </div>
+          <div class="dl-meta mono">CGEvent receiver</div>
+          <p>Builds from the same source today. A signed app is on the roadmap.</p>
+          <span class="dl-soon mono">Coming soon</span>
+          <a class="dl-sub mono" href="https://github.com/Abdk4Moura/relay-desktop#build-from-source">build from source</a>
+        </div>
+
+        <div class="dl-card is-soon">
+          <div class="dl-os">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>
+            <span>Android</span>
+          </div>
+          <div class="dl-meta mono">The phone app</div>
+          <p>The Relay controller app for Bluetooth HID and WiFi modes. Not yet public.</p>
+          <span class="dl-soon mono">Coming soon</span>
+        </div>
+
+      </div>
+      <p class="dl-all"><a class="link-arrow" href="https://github.com/Abdk4Moura/relay-desktop/releases">View all releases<svg class="arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></p>
 
       <h2 id="start">Getting started</h2>
       <p>Relay has two pieces: the app on your phone, and a receiver on the machine you want to control. On your own network, both are free.</p>
@@ -151,7 +203,7 @@
         </a>
         <p>Remote control for the machines remote control can't reach.</p>
       </div>
-      <div><h5>Product</h5><a href="use-cases.html">Use cases</a><a href="pricing.html">Pricing</a><a href="docs.html">Download</a></div>
+      <div><h5>Product</h5><a href="use-cases.html">Use cases</a><a href="pricing.html">Pricing</a><a href="docs.html#download">Download</a></div>
       <div><h5>Develop</h5><a href="docs.html">Documentation</a><a href="docs.html#guides">DIY guides</a><a href="docs.html#protocol">Wire protocol</a></div>
       <div><h5>Company</h5><a href="blog.html">Blog</a><a href="blog.html">Research</a></div>
     </div>
