@@ -1,12 +1,13 @@
-/* signal.js · Relay's live figures.
-   Every illustration on this site is drawn at runtime from the product's
-   real internals: actual wire-protocol lines, real HID usage codes,
-   keystrokes landing letter by letter. No stock art, no icon grids.
+/* signal.js · Relay's live figures, realist edition.
+   Every illustration is drawn at runtime from the product's real internals:
+   actual wire-protocol lines, real HID usage codes, keystrokes landing
+   letter by letter. Devices are rendered as objects: shadows, body
+   gradients, glass, sheen, scanlines, the classic blue BIOS.
 
-   One design rule: screens are dark glass. Drawn devices and the big
-   instrument panels keep a fixed dark deck in BOTH themes (a monitor is
-   dark even on a light page); only the page chrome around them re-themes.
-   Canvas 2D, pauses off-screen, honors prefers-reduced-motion. */
+   Performance: each figure pre-renders its static artwork once to an
+   offscreen layer (rebuilt only on resize or theme change); per frame we
+   blit the layer and draw just the moving parts. Vignettes run at 30fps.
+   Screens stay dark glass in both themes. Honors reduced motion. */
 (function () {
   "use strict";
 
@@ -17,10 +18,8 @@
   function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
   function ez(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
 
-  /* ---- palettes ----
-     P  follows the page theme (for wires/captions sitting on the page).
-     DK is the fixed dark deck (for devices, screens, instrument panels). */
-  var P = {}, DK = {};
+  /* ---- palettes: P follows the page theme, DK is the fixed dark deck ---- */
+  var P = {}, DK = {}, themeVer = 0;
   function palette() {
     var cs = getComputedStyle(document.documentElement);
     function g(k, d) { var v = cs.getPropertyValue(k).trim(); return v || d; }
@@ -33,8 +32,8 @@
     P.line = g("--accent-line", "rgba(101,234,146,.32)");
     P.mono = g("--font-mono", "ui-monospace, monospace");
     var hue = g("--hue", "152");
-    DK.e0 = "oklch(0.145 0.008 265)"; DK.e1 = "oklch(0.190 0.009 265)";
-    DK.e2 = "oklch(0.225 0.010 265)"; DK.e3 = "oklch(0.270 0.011 265)";
+    DK.e1 = "oklch(0.190 0.009 265)"; DK.e2 = "oklch(0.225 0.010 265)";
+    DK.e3 = "oklch(0.270 0.011 265)";
     DK.border = "oklch(0.305 0.010 265)"; DK.borderHi = "oklch(0.42 0.013 265)";
     DK.text = "oklch(0.97 0.004 265)"; DK.t2 = "oklch(0.78 0.006 265)";
     DK.t3 = "oklch(0.60 0.007 265)"; DK.t4 = "oklch(0.46 0.007 265)";
@@ -44,9 +43,18 @@
     DK.mono = P.mono;
   }
   palette();
-  new MutationObserver(palette).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  new MutationObserver(function () { palette(); themeVer++; }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
-  /* ---- draw helpers (K = whichever palette the element lives on) ---- */
+  /* realist content constants (content colors, not UI tokens) */
+  var RL = {
+    glass: "#0b0d12",
+    tl: ["#ff5f57", "#febc2e", "#28c840"],
+    bios: { bg: "#0a0aa8", bg2: "#0d0dc8", txt: "#dcdcee", sel: "#c0c0c0", selTxt: "#0a0aa8", key: "#ffd75e" },
+    tv: ["#e50914", "#1f80e0", "#1db954", "#8b5cf6"],
+    sun: ["#191040", "#8f2f6d", "#ff8a3c"]
+  };
+
+  /* ---- draw helpers ---- */
   function rr(c, x, y, w, h, r) {
     r = Math.min(r, w / 2, h / 2);
     c.beginPath();
@@ -63,40 +71,156 @@
     c.textAlign = align || "left";
     c.textBaseline = "middle";
   }
-  function glowDot(c, K, x, y, r) {
-    c.save();
-    c.shadowColor = K.acc; c.shadowBlur = 12;
-    c.fillStyle = K.acc;
-    c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
-    c.restore();
-  }
   function cubic(p0, p1, p2, p3, t) {
     var u = 1 - t, a = u * u * u, b = 3 * u * u * t, d = 3 * u * t * t, e = t * t * t;
     return { x: a * p0.x + b * p1.x + d * p2.x + e * p3.x, y: a * p0.y + b * p1.y + d * p2.y + e * p3.y };
   }
-  function phone(c, K, x, y, w, h) {
-    c.fillStyle = K.e2; c.strokeStyle = K.borderHi; c.lineWidth = 1.4;
-    rr(c, x, y, w, h, Math.min(12, w * 0.16)); c.fill(); c.stroke();
-    c.fillStyle = K.e0 || K.e1; rr(c, x + 4, y + 7, w - 8, h - 14, 7); c.fill();
-    c.strokeStyle = K.border; c.lineWidth = 2; c.lineCap = "round";
-    c.beginPath(); c.moveTo(x + w * 0.38, y + h - 11); c.lineTo(x + w * 0.62, y + h - 11); c.stroke();
+  /* glow without shadowBlur: three arcs */
+  function glowDot(c, col, x, y, r) {
+    c.save(); c.fillStyle = col;
+    c.globalAlpha = 0.10; c.beginPath(); c.arc(x, y, r * 3.4, 0, TAU); c.fill();
+    c.globalAlpha = 0.22; c.beginPath(); c.arc(x, y, r * 2, 0, TAU); c.fill();
+    c.globalAlpha = 1; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+    c.restore();
   }
-  function keyFlash(c, K, x, y, w, h, ch, a) {
+  function chipBox(c, K, x, y, label, fs) {
+    mono(c, fs || 9.5, K.acc, "center");
+    var tw = c.measureText(label).width;
+    c.save(); c.shadowColor = K.acc; c.shadowBlur = 7;
+    c.fillStyle = RL.glass; c.strokeStyle = K.line; c.lineWidth = 1;
+    rr(c, x - tw / 2 - 7, y - 9, tw + 14, 18, 6); c.fill(); c.stroke();
+    c.restore();
+    c.fillStyle = K.acc; c.fillText(label, x, y + 0.5);
+  }
+  function cursorArrow(c, x, y, col) {
+    c.fillStyle = col;
+    c.beginPath(); c.moveTo(x, y); c.lineTo(x + 7.5, y + 8); c.lineTo(x + 3.2, y + 8.3); c.lineTo(x + 1.3, y + 11.8); c.closePath(); c.fill();
+    c.strokeStyle = "rgba(0,0,0,0.45)"; c.lineWidth = 0.8; c.stroke();
+  }
+
+  /* ---- realist shell pieces (drawn once into a figure's cached layer) ---- */
+  function shadowUnder(g, cx, cy, w, hh) {
+    hh = hh || w / 9;
+    var grd = g.createRadialGradient(cx, cy, 1, cx, cy, w / 2);
+    grd.addColorStop(0, "rgba(0,0,0,0.30)"); grd.addColorStop(1, "rgba(0,0,0,0)");
+    g.save(); g.translate(cx, cy); g.scale(1, hh / (w / 2)); g.translate(-cx, -cy);
+    g.fillStyle = grd; g.beginPath(); g.arc(cx, cy, w / 2, 0, TAU); g.fill();
+    g.restore();
+  }
+  function sheen(g, x, y, w, h, r) {
+    g.save(); rr(g, x, y, w, h, r); g.clip();
+    var s = g.createLinearGradient(x, y, x + w * 0.9, y + h * 0.7);
+    s.addColorStop(0, "rgba(255,255,255,0.075)");
+    s.addColorStop(0.45, "rgba(255,255,255,0.018)");
+    s.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = s; g.fillRect(x, y, w, h * 0.65);
+    g.restore();
+  }
+  function scanlines(g, x, y, w, h) {
+    g.save(); g.fillStyle = "rgba(0,0,0,0.10)";
+    for (var sy = y + 2; sy < y + h - 2; sy += 3) g.fillRect(x, sy, w, 1);
+    g.restore();
+  }
+  function phoneShell(g, K, x, y, w, h) {
+    shadowUnder(g, x + w / 2, y + h + 5, w * 1.15);
+    var bg = g.createLinearGradient(0, y, 0, y + h);
+    bg.addColorStop(0, K.e3); bg.addColorStop(1, K.e1);
+    g.fillStyle = bg; g.strokeStyle = K.borderHi; g.lineWidth = 1.4;
+    rr(g, x, y, w, h, Math.min(13, w * 0.17)); g.fill(); g.stroke();
+    g.strokeStyle = "rgba(255,255,255,0.10)"; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(x + 7, y + 1.5); g.lineTo(x + w - 7, y + 1.5); g.stroke();
+    g.fillStyle = RL.glass; rr(g, x + 4, y + 7, w - 8, h - 14, 8); g.fill();
+    sheen(g, x + 4, y + 7, w - 8, h - 14, 8);
+    g.fillStyle = "#1d2127"; g.beginPath(); g.arc(x + w / 2, y + 12.5, 2.1, 0, TAU); g.fill();
+    g.fillStyle = "rgba(120,160,255,0.55)"; g.beginPath(); g.arc(x + w / 2 + 0.7, y + 11.9, 0.7, 0, TAU); g.fill();
+  }
+  function keyGridShell(g, x, y, w, h) {
     var cols = 5, rows = 4, gx = 4, gy = 4;
     var kw = (w - gx * (cols + 1)) / cols, kh = (h - gy * (rows + 1)) / rows;
     for (var r = 0; r < rows; r++) for (var q = 0; q < cols; q++) {
       var kx = x + gx + q * (kw + gx), ky = y + gy + r * (kh + gy);
-      c.fillStyle = K.e3; c.globalAlpha = 0.6;
-      rr(c, kx, ky, kw, kh, 3); c.fill(); c.globalAlpha = 1;
+      g.fillStyle = "rgba(255,255,255,0.07)"; rr(g, kx, ky, kw, kh, 3); g.fill();
+      g.fillStyle = "rgba(255,255,255,0.05)"; g.fillRect(kx + 1, ky + 0.7, kw - 2, 1);
     }
-    if (ch && a > 0) {
-      var n = (ch.charCodeAt(0) * 7) % (cols * rows);
-      var fq = n % cols, fr = (n / cols) | 0;
-      var fx = x + gx + fq * (kw + gx), fy = y + gy + fr * (kh + gy);
-      c.globalAlpha = a;
-      c.fillStyle = K.ghost; rr(c, fx, fy, kw, kh, 3); c.fill();
-      c.strokeStyle = K.acc; c.lineWidth = 1.2; rr(c, fx, fy, kw, kh, 3); c.stroke();
-      c.globalAlpha = 1;
+  }
+  function flashKey(c, K, x, y, w, h, ch, a) {
+    if (!ch || a <= 0) return;
+    var cols = 5, rows = 4, gx = 4, gy = 4;
+    var kw = (w - gx * (cols + 1)) / cols, kh = (h - gy * (rows + 1)) / rows;
+    var n = (ch.charCodeAt(0) * 7) % (cols * rows);
+    var fx = x + gx + (n % cols) * (kw + gx), fy = y + gy + ((n / cols) | 0) * (kh + gy);
+    c.globalAlpha = a;
+    c.fillStyle = K.ghost; rr(c, fx, fy, kw, kh, 3); c.fill();
+    c.strokeStyle = K.acc; c.lineWidth = 1.2; rr(c, fx, fy, kw, kh, 3); c.stroke();
+    c.globalAlpha = 1;
+  }
+  function monitorShell(g, K, x, y, w, h) {
+    shadowUnder(g, x + w / 2, y + h + 19, w);
+    var bg = g.createLinearGradient(0, y, 0, y + h);
+    bg.addColorStop(0, K.e3); bg.addColorStop(1, K.e2);
+    g.fillStyle = bg; g.strokeStyle = K.borderHi; g.lineWidth = 1.4;
+    rr(g, x, y, w, h, 10); g.fill(); g.stroke();
+    g.strokeStyle = "rgba(255,255,255,0.09)"; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(x + 8, y + 1.5); g.lineTo(x + w - 8, y + 1.5); g.stroke();
+    g.fillStyle = RL.glass; rr(g, x + 6, y + 6, w - 12, h - 12, 6); g.fill();
+    scanlines(g, x + 8, y + 8, w - 16, h - 16);
+    sheen(g, x + 6, y + 6, w - 12, h - 12, 6);
+    var ng = g.createLinearGradient(0, y + h, 0, y + h + 13);
+    ng.addColorStop(0, K.e2); ng.addColorStop(1, K.e1);
+    g.fillStyle = ng; g.fillRect(x + w / 2 - 7, y + h, 14, 12);
+    g.fillStyle = K.e2; g.strokeStyle = K.border; g.lineWidth = 1;
+    rr(g, x + w / 2 - 27, y + h + 11, 54, 6, 3); g.fill(); g.stroke();
+  }
+  function laptopShell(g, K, x, y, w, h) {
+    shadowUnder(g, x + w / 2, y + h + 12, w * 1.25);
+    var bg = g.createLinearGradient(0, y, 0, y + h);
+    bg.addColorStop(0, K.e3); bg.addColorStop(1, K.e2);
+    g.fillStyle = bg; g.strokeStyle = K.borderHi; g.lineWidth = 1.4;
+    rr(g, x, y, w, h, 8); g.fill(); g.stroke();
+    g.fillStyle = RL.glass; rr(g, x + 5, y + 5, w - 10, h - 10, 5); g.fill();
+    sheen(g, x + 5, y + 5, w - 10, h - 10, 5);
+    var base = g.createLinearGradient(0, y + h, 0, y + h + 9);
+    base.addColorStop(0, K.e3); base.addColorStop(1, K.e1);
+    g.fillStyle = base; g.strokeStyle = K.borderHi; g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(x - 13, y + h); g.lineTo(x + w + 13, y + h);
+    g.lineTo(x + w + 9, y + h + 8); g.lineTo(x - 9, y + h + 8);
+    g.closePath(); g.fill(); g.stroke();
+    g.fillStyle = "rgba(255,255,255,0.06)";
+    g.fillRect(x + w / 2 - 16, y + h + 1, 32, 2.5);
+  }
+  function windowChrome(g, K, x, y, w, h, title) {
+    shadowUnder(g, x + w / 2, y + h + 4, w * 0.9, 5);
+    var bg = g.createLinearGradient(0, y, 0, y + h);
+    bg.addColorStop(0, K.e3); bg.addColorStop(1, K.e2);
+    g.fillStyle = bg; g.strokeStyle = K.borderHi; g.lineWidth = 1.2;
+    rr(g, x, y, w, h, 8); g.fill(); g.stroke();
+    for (var i = 0; i < 3; i++) {
+      g.fillStyle = RL.tl[i];
+      g.beginPath(); g.arc(x + 11 + i * 8.5, y + 9, 2.6, 0, TAU); g.fill();
+    }
+    if (title) {
+      g.font = "8px " + P.mono; g.fillStyle = K.t4; g.textAlign = "left"; g.textBaseline = "middle";
+      g.fillText(title, x + 38, y + 9.5);
+    }
+    g.fillStyle = "#0d0f14"; rr(g, x + 4, y + 17, w - 8, h - 21, 5); g.fill();
+  }
+  function biosBox(g, x, y, w, h, header, footer) {
+    var bg = g.createLinearGradient(0, y, 0, y + h);
+    bg.addColorStop(0, RL.bios.bg2); bg.addColorStop(0.25, RL.bios.bg); bg.addColorStop(1, RL.bios.bg);
+    g.fillStyle = bg; rr(g, x, y, w, h, 3); g.fill();
+    g.strokeStyle = "rgba(225,225,245,0.85)"; g.lineWidth = 1;
+    g.strokeRect(x + 3.5, y + 3.5, w - 7, h - 7);
+    g.strokeStyle = "rgba(225,225,245,0.35)";
+    g.strokeRect(x + 6.5, y + 6.5, w - 13, h - 13);
+    if (header) {
+      g.fillStyle = RL.bios.bg2; g.fillRect(x + 7, y + 7, w - 14, 13);
+      g.font = "7.5px " + P.mono; g.fillStyle = RL.bios.txt; g.textAlign = "center"; g.textBaseline = "middle";
+      g.fillText(header, x + w / 2, y + 14);
+    }
+    if (footer) {
+      g.font = "7px " + P.mono; g.fillStyle = RL.bios.key; g.textAlign = "center"; g.textBaseline = "middle";
+      g.fillText(footer, x + w / 2, y + h - 11);
     }
   }
   function typeLoop(words, step, hold) {
@@ -133,135 +257,129 @@
 
   var SIG = {};
 
-  /* =================== HERO: phone drives a machine, live ===================
-     Lives inside an always-dark instrument panel: everything on deck DK. */
-  SIG.hero = function (c, dim) {
+  /* =================== HERO: phone drives a machine, live =================== */
+  SIG.hero = function (c, dim, S) {
     var loop = typeLoop(["wake the dead box", "BIOS> boot from usb", "search: interstellar", "hello from a phone"], 0.34, 1.6);
     var scroll = 0;
-    return function (t, dt) {
-      var D = dim(), W = D.W, H = D.H, K = DK;
-      c.clearRect(0, 0, W, H);
-      loop.update(dt); scroll += dt * 26;
+    function lay(W, H) {
       var narrow = W < 560;
-
       var m = narrow ? 14 : Math.max(22, W * 0.045);
       var phW = clamp(W * 0.105, 48, 92), phH = phW * 1.95;
-      var py = (H - 30 - phH) / 2 + 6;
-      var px = m;
+      var py = (H - 30 - phH) / 2 + 6, px = m;
       var moW = clamp(W * 0.34, 170, 320), moH = moW * 0.62;
       var mx = W - m - moW, my = (H - 30 - moH - 14) / 2 + 2;
-
       var a = { x: px + phW + 6, y: py + phH * 0.42 };
       var b = { x: mx - 8, y: my + moH * 0.5 };
-      var c1 = { x: lerp(a.x, b.x, 0.38), y: a.y - 26 };
-      var c2 = { x: lerp(a.x, b.x, 0.66), y: b.y + 22 };
-      c.strokeStyle = K.border; c.lineWidth = 1.3;
-      c.beginPath(); c.moveTo(a.x, a.y); c.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, b.x, b.y); c.stroke();
-      mono(c, 10, K.t4, "center");
-      c.fillText(narrow ? "9 ms" : "encrypted · 9 ms", lerp(a.x, b.x, 0.5), Math.min(a.y, b.y) - 18);
+      return { narrow: narrow, m: m, phW: phW, phH: phH, px: px, py: py, moW: moW, moH: moH, mx: mx, my: my,
+        a: a, b: b,
+        c1: { x: lerp(a.x, b.x, 0.38), y: a.y - 26 },
+        c2: { x: lerp(a.x, b.x, 0.66), y: b.y + 22 } };
+    }
+    function drawShell(g, W, H) {
+      var L = lay(W, H), K = DK;
+      g.strokeStyle = K.border; g.lineWidth = 1.3;
+      g.beginPath(); g.moveTo(L.a.x, L.a.y); g.bezierCurveTo(L.c1.x, L.c1.y, L.c2.x, L.c2.y, L.b.x, L.b.y); g.stroke();
+      g.font = "10px " + P.mono; g.fillStyle = K.t4; g.textAlign = "center"; g.textBaseline = "middle";
+      g.fillText(L.narrow ? "9 ms" : "encrypted · 9 ms", lerp(L.a.x, L.b.x, 0.5), Math.min(L.a.y, L.b.y) - 18);
+      phoneShell(g, K, L.px, L.py, L.phW, L.phH);
+      keyGridShell(g, L.px + 7, L.py + L.phH * 0.46, L.phW - 14, L.phH * 0.44);
+      g.fillStyle = K.t3; g.font = "10px " + P.mono;
+      g.fillText("your phone", L.px + L.phW / 2, L.py + L.phH + 16);
+      monitorShell(g, K, L.mx, L.my, L.moW, L.moH);
+      g.fillStyle = K.t3; g.font = "10px " + P.mono;
+      g.fillText(L.narrow ? "any machine" : "any machine · nothing installed", L.mx + L.moW / 2, L.my + L.moH + 26);
+      g.font = "9.5px " + P.mono; g.fillStyle = K.t4; g.textAlign = "left";
+      g.fillText("relay · link up · 47600", L.mx + 16, L.my + 22);
+    }
+    return function (t, dt) {
+      var D = dim(), W = D.W, H = D.H, K = DK, L = lay(W, H);
+      c.clearRect(0, 0, W, H);
+      c.drawImage(S.shell(drawShell), 0, 0, W, H);
+      loop.update(dt); scroll += dt * 26;
 
-      phone(c, K, px, py, phW, phH);
-      keyFlash(c, K, px + 7, py + phH * 0.46, phW - 14, phH * 0.44, loop.flight, loop.mode === "type" ? 1 - loop.p : 0);
-      mono(c, 10, K.t3, "center");
-      c.fillText("your phone", px + phW / 2, py + phH + 16);
-
+      flashKey(c, K, L.px + 7, L.py + L.phH * 0.46, L.phW - 14, L.phH * 0.44, loop.flight, loop.mode === "type" ? 1 - loop.p : 0);
       if (loop.mode === "type" && loop.flight) {
-        var q = cubic(a, c1, c2, b, ez(clamp(loop.p / 0.85, 0, 1)));
-        glowDot(c, K, q.x, q.y, 3.4);
+        var q = cubic(L.a, L.c1, L.c2, L.b, ez(clamp(loop.p / 0.85, 0, 1)));
+        glowDot(c, K.acc, q.x, q.y, 3.2);
       }
-
-      c.fillStyle = K.e2; c.strokeStyle = K.borderHi; c.lineWidth = 1.4;
-      rr(c, mx, my, moW, moH, 10); c.fill(); c.stroke();
-      c.fillStyle = K.e0; rr(c, mx + 6, my + 6, moW - 12, moH - 12, 6); c.fill();
-      c.strokeStyle = K.borderHi;
-      c.beginPath(); c.moveTo(mx + moW * 0.42, my + moH); c.lineTo(mx + moW * 0.40, my + moH + 12); c.moveTo(mx + moW * 0.58, my + moH); c.lineTo(mx + moW * 0.60, my + moH + 12); c.stroke();
-      mono(c, 10, K.t3, "center");
-      c.fillText(narrow ? "any machine" : "any machine · nothing installed", mx + moW / 2, my + moH + 24);
-
-      var fs = moW < 220 ? 11 : 13;
-      var tx = mx + 16, ty = my + 22;
-      mono(c, 9.5, K.t4, "left");
-      c.fillText("relay · link up · 47600", tx, ty);
+      var fs = L.moW < 220 ? 11 : 13;
+      var tx = L.mx + 16, ty = L.my + 22;
       mono(c, fs, K.t3, "left");
       c.fillText(">", tx, ty + 22);
+      c.save(); c.shadowColor = K.acc; c.shadowBlur = 6;
       mono(c, fs, K.acc, "left");
-      var typed = loop.typed;
-      c.fillText(typed, tx + 12, ty + 22);
+      c.fillText(loop.typed, tx + 12, ty + 22);
+      c.restore();
       if ((t * 2 | 0) % 2 === 0) {
-        var cw = c.measureText(typed).width;
+        c.fillStyle = K.acc;
+        var cw = c.measureText(loop.typed).width;
         c.fillRect(tx + 15 + cw, ty + 22 - fs * 0.45, fs * 0.52, fs * 0.9);
       }
-
       var line = WIRE.join("   ");
       mono(c, 10, K.t4, "left");
       var lw = c.measureText(line + "   ").width;
-      var off = -(scroll % lw);
       c.save(); c.globalAlpha = 0.5;
-      c.fillText(line + "   " + line, m + off, H - 16);
+      c.fillText(line + "   " + line, L.m - (scroll % lw), H - 14);
       c.restore();
     };
   };
+  SIG.hero.fps = 60;
 
   /* =================== MODE 1: app mode, a key travels as JSON =================== */
-  SIG.app = function (c, dim) {
+  SIG.app = function (c, dim, S) {
     var loop = typeLoop(["hello"], 0.55, 1.4);
-    return function (t, dt) {
-      var D = dim(), W = D.W, H = D.H, K = DK;
-      c.clearRect(0, 0, W, H);
-      loop.update(dt);
+    function lay(W, H) {
       var narrow = W < 460;
-
       var phW = clamp(W * 0.14, 44, 70), phH = phW * 1.95;
       var px = narrow ? 4 : 8, py = (H - phH) / 2 - 6;
       var lsW = clamp(W * 0.42, 150, 210), lsH = lsW * 0.62;
-      var lx = W - lsW - (narrow ? 12 : 18), ly = (H - lsH) / 2 - 12;
-
+      var lx = W - lsW - (narrow ? 14 : 20), ly = (H - lsH) / 2 - 12;
       var a = { x: px + phW + 6, y: py + phH * 0.4 };
-      var b = { x: lx - 10, y: ly + lsH * 0.55 };
-      var c1 = { x: lerp(a.x, b.x, 0.4), y: a.y - 20 };
-      var c2 = { x: lerp(a.x, b.x, 0.6), y: b.y + 16 };
-      c.strokeStyle = K.border; c.lineWidth = 1.2;
-      c.beginPath(); c.moveTo(a.x, a.y); c.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, b.x, b.y); c.stroke();
-      mono(c, 9.5, K.t4, "center");
-      c.fillText(narrow ? "encrypted" : "your network · encrypted", lerp(a.x, b.x, 0.5), Math.min(a.y, b.y) - 14);
-
-      phone(c, K, px, py, phW, phH);
-      keyFlash(c, K, px + 6, py + phH * 0.46, phW - 12, phH * 0.44, loop.flight, loop.mode === "type" ? 1 - loop.p : 0);
-
-      if (loop.mode === "type" && loop.flight) {
-        var q = cubic(a, c1, c2, b, ez(clamp(loop.p / 0.85, 0, 1)));
-        var label = '{"t":"key","k":"' + loop.flight + '"}';
-        mono(c, 9.5, K.acc, "center");
-        var tw = c.measureText(label).width;
-        c.save(); c.shadowColor = K.acc; c.shadowBlur = 8;
-        c.fillStyle = K.e0; c.strokeStyle = K.line; c.lineWidth = 1;
-        rr(c, q.x - tw / 2 - 7, q.y - 9, tw + 14, 18, 6); c.fill(); c.stroke();
-        c.restore();
-        c.fillStyle = K.acc;
-        c.fillText(label, q.x, q.y + 0.5);
+      var b = { x: lx - 12, y: ly + lsH * 0.55 };
+      return { narrow: narrow, phW: phW, phH: phH, px: px, py: py, lsW: lsW, lsH: lsH, lx: lx, ly: ly,
+        a: a, b: b,
+        c1: { x: lerp(a.x, b.x, 0.4), y: a.y - 20 },
+        c2: { x: lerp(a.x, b.x, 0.6), y: b.y + 16 } };
+    }
+    function drawShell(g, W, H) {
+      var L = lay(W, H), K = DK;
+      g.strokeStyle = K.border; g.lineWidth = 1.2;
+      g.beginPath(); g.moveTo(L.a.x, L.a.y); g.bezierCurveTo(L.c1.x, L.c1.y, L.c2.x, L.c2.y, L.b.x, L.b.y); g.stroke();
+      g.font = "9.5px " + P.mono; g.fillStyle = K.t4; g.textAlign = "center"; g.textBaseline = "middle";
+      g.fillText(L.narrow ? "encrypted" : "your network · encrypted", lerp(L.a.x, L.b.x, 0.5), Math.min(L.a.y, L.b.y) - 14);
+      phoneShell(g, K, L.px, L.py, L.phW, L.phH);
+      keyGridShell(g, L.px + 6, L.py + L.phH * 0.46, L.phW - 12, L.phH * 0.44);
+      laptopShell(g, K, L.lx, L.ly, L.lsW, L.lsH);
+      for (var i = 0; i < 3; i++) {
+        g.fillStyle = RL.tl[i];
+        g.beginPath(); g.arc(L.lx + 15 + i * 8, L.ly + 14, 2.3, 0, TAU); g.fill();
       }
-
-      c.fillStyle = K.e2; c.strokeStyle = K.borderHi; c.lineWidth = 1.4;
-      rr(c, lx, ly, lsW, lsH, 8); c.fill(); c.stroke();
-      c.fillStyle = K.e0; rr(c, lx + 5, ly + 5, lsW - 10, lsH - 10, 5); c.fill();
-      c.fillStyle = K.e2; c.strokeStyle = K.borderHi;
-      rr(c, lx - 10, ly + lsH, lsW + 20, 7, 3); c.fill(); c.stroke();
-
-      mono(c, 9.5, K.t4, "left");
-      c.fillText("receiver · open source", lx + 14, ly + 18);
+      g.font = "8.5px " + P.mono; g.fillStyle = K.t4; g.textAlign = "left";
+      g.fillText("receiver · open source", L.lx + 40, L.ly + 14.5);
+      g.fillText("uinput · SendInput · CGEvent", L.lx + 14, L.ly + L.lsH - 13);
+    }
+    return function (t, dt) {
+      var D = dim(), W = D.W, H = D.H, K = DK, L = lay(W, H);
+      c.clearRect(0, 0, W, H);
+      c.drawImage(S.shell(drawShell), 0, 0, W, H);
+      loop.update(dt);
+      flashKey(c, K, L.px + 6, L.py + L.phH * 0.46, L.phW - 12, L.phH * 0.44, loop.flight, loop.mode === "type" ? 1 - loop.p : 0);
+      if (loop.mode === "type" && loop.flight) {
+        var q = cubic(L.a, L.c1, L.c2, L.b, ez(clamp(loop.p / 0.85, 0, 1)));
+        chipBox(c, K, q.x, q.y, '{"t":"key","k":"' + loop.flight + '"}', 9.5);
+      }
       mono(c, 14, K.text, "left");
-      c.fillText(loop.typed, lx + 14, ly + lsH * 0.55);
+      c.fillText(loop.typed, L.lx + 14, L.ly + L.lsH * 0.55);
       if ((t * 2 | 0) % 2 === 0) {
         c.fillStyle = K.acc;
-        c.fillRect(lx + 16 + c.measureText(loop.typed).width, ly + lsH * 0.55 - 6, 7, 12);
+        c.fillRect(L.lx + 16 + c.measureText(loop.typed).width, L.ly + L.lsH * 0.55 - 6, 7, 12);
       }
-      mono(c, 9, K.t4, "left");
-      c.fillText("uinput · SendInput · CGEvent", lx + 14, ly + lsH - 14);
     };
   };
+  SIG.app.fps = 48;
 
-  /* ============ MODE 2: out-of-band, HID bytes drive a BIOS menu ============ */
-  SIG.oob = function (c, dim) {
+  /* ============ MODE 2: out-of-band, HID bytes drive the blue BIOS ============ */
+  SIG.oob = function (c, dim, S) {
     var ROWS = ["NVME SSD", "USB DRIVE", "NETWORK"];
     var SEQ = [
       { code: "0x51", move: 1 }, { code: "0x51", move: 1 },
@@ -269,10 +387,69 @@
       { code: "0x52", move: -1 }, { code: "0x28", move: 0 }
     ];
     var si = 0, p = 0, hl = 0, flash = 0;
-    return function (t, dt) {
-      var D = dim(), W = D.W, H = D.H, K = DK;
-      c.clearRect(0, 0, W, H);
+    function lay(W, H) {
       var narrow = W < 520;
+      var phW = clamp(W * 0.115, 40, 60), phH = phW * 1.95;
+      var px = narrow ? 2 : 6, py = 10;
+      var brW = clamp(W * 0.2, 76, 112), brH = narrow ? 44 : 52;
+      var bx = W * (narrow ? 0.26 : 0.30), by = H * 0.54 - brH / 2;
+      var moW = clamp(W * 0.36, 150, 220), moH = moW * 0.68;
+      var mx = W - moW - (narrow ? 8 : 14), my = (H - moH) / 2 - 10;
+      return { narrow: narrow, phW: phW, phH: phH, px: px, py: py, brW: brW, brH: brH, bx: bx, by: by,
+        moW: moW, moH: moH, mx: mx, my: my,
+        u0: { x: bx + brW + 4, y: by + 14 }, u1: { x: mx - 8, y: my + moH * 0.3 },
+        h0: { x: mx - 8, y: my + moH * 0.78 }, h1: { x: bx + brW * 0.7, y: by + brH + 4 } };
+    }
+    function drawShell(g, W, H) {
+      var L = lay(W, H), K = DK;
+      // phone -> bridge wifi line
+      var a = { x: L.px + L.phW / 2, y: L.py + L.phH + 4 };
+      var b = { x: L.bx + L.brW * 0.3, y: L.by - 4 };
+      g.strokeStyle = K.border; g.lineWidth = 1.2;
+      g.beginPath(); g.moveTo(a.x, a.y); g.bezierCurveTo(a.x, a.y + 26, b.x - 30, b.y - 22, b.x, b.y); g.stroke();
+      g.font = "9px " + P.mono; g.fillStyle = K.t4; g.textAlign = "left"; g.textBaseline = "middle";
+      g.fillText("wifi", a.x + 8, (a.y + b.y) / 2);
+      phoneShell(g, K, L.px, L.py, L.phW, L.phH);
+      // bridge: a small metal box with ports
+      shadowUnder(g, L.bx + L.brW / 2, L.by + L.brH + 4, L.brW * 1.1, 5);
+      var bg = g.createLinearGradient(0, L.by, 0, L.by + L.brH);
+      bg.addColorStop(0, K.e3); bg.addColorStop(1, K.e1);
+      g.fillStyle = bg; g.strokeStyle = K.borderHi; g.lineWidth = 1.3;
+      rr(g, L.bx, L.by, L.brW, L.brH, 9); g.fill(); g.stroke();
+      g.strokeStyle = "rgba(255,255,255,0.09)";
+      g.beginPath(); g.moveTo(L.bx + 6, L.by + 1.5); g.lineTo(L.bx + L.brW - 6, L.by + 1.5); g.stroke();
+      g.fillStyle = RL.glass;
+      g.fillRect(L.bx + L.brW - 7, L.by + L.brH * 0.28, 4, 6);
+      g.fillRect(L.bx + L.brW - 7, L.by + L.brH * 0.58, 4, 6);
+      g.font = (L.narrow ? "9.5px " : "10.5px ") + P.mono; g.fillStyle = K.text; g.textAlign = "center";
+      g.fillText("BRIDGE", L.bx + L.brW / 2, L.by + L.brH * 0.36);
+      g.font = (L.narrow ? "8.5px " : "9px ") + P.mono; g.fillStyle = K.t3;
+      g.fillText("pi · dongle", L.bx + L.brW / 2, L.by + L.brH * 0.68);
+      // usb path
+      g.strokeStyle = K.acc2; g.lineWidth = 1.3; g.globalAlpha = 0.7;
+      g.beginPath(); g.moveTo(L.u0.x, L.u0.y);
+      g.bezierCurveTo(L.u0.x + 40, L.u0.y - 14, L.u1.x - 40, L.u1.y - 8, L.u1.x, L.u1.y); g.stroke();
+      g.globalAlpha = 1;
+      g.font = "9px " + P.mono; g.fillStyle = K.t4; g.textAlign = "center";
+      g.fillText(L.narrow ? "USB HID" : "USB · a real keyboard", (L.u0.x + L.u1.x) / 2, L.u0.y - 18);
+      // hdmi path
+      g.strokeStyle = K.t4; g.lineWidth = 1.1; g.setLineDash([4, 4]);
+      g.beginPath(); g.moveTo(L.h0.x, L.h0.y);
+      g.bezierCurveTo(L.h0.x - 50, L.h0.y + 14, L.h1.x + 40, L.h1.y + 22, L.h1.x, L.h1.y); g.stroke();
+      g.setLineDash([]);
+      g.fillText(L.narrow ? "HDMI" : "HDMI capture · the eyes", (L.h0.x + L.h1.x) / 2 + 10, L.h0.y + 26);
+      // the target: a real monitor showing the classic blue BIOS
+      monitorShell(g, K, L.mx, L.my, L.moW, L.moH);
+      biosBox(g, L.mx + 8, L.my + 8, L.moW - 16, L.moH - 16,
+        L.narrow ? "BIOS SETUP" : "BIOS SETUP UTILITY",
+        L.narrow ? null : "↑↓: Select   Enter: Boot");
+      g.font = "9px " + P.mono; g.fillStyle = K.t4; g.textAlign = "center";
+      g.fillText(L.narrow ? "no OS needed" : "no OS · nothing runs here", L.mx + L.moW / 2, L.my + L.moH + 26);
+    }
+    return function (t, dt) {
+      var D = dim(), W = D.W, H = D.H, K = DK, L = lay(W, H);
+      c.clearRect(0, 0, W, H);
+      c.drawImage(S.shell(drawShell), 0, 0, W, H);
       var step = 1.05;
       p += dt / step; flash = Math.max(0, flash - dt * 2.2);
       if (p >= 1) {
@@ -282,168 +459,168 @@
         else flash = 1;
         si = (si + 1) % SEQ.length;
       }
-
-      var phW = clamp(W * 0.115, 40, 60), phH = phW * 1.95;
-      var px = narrow ? 2 : 6, py = 12;
-      var brW = clamp(W * 0.2, 76, 112), brH = narrow ? 46 : 54;
-      var bx = W * (narrow ? 0.26 : 0.30), by = H * 0.52 - brH / 2;
-      var moW = clamp(W * 0.36, 150, 220), moH = moW * 0.66;
-      var mx = W - moW - (narrow ? 8 : 14), my = (H - moH) / 2 - 8;
-
-      var a = { x: px + phW / 2, y: py + phH + 4 };
-      var b = { x: bx + brW * 0.3, y: by - 4 };
-      c.strokeStyle = K.border; c.lineWidth = 1.2;
-      c.beginPath(); c.moveTo(a.x, a.y); c.bezierCurveTo(a.x, a.y + 26, b.x - 30, b.y - 22, b.x, b.y); c.stroke();
-      mono(c, 9, K.t4, "left"); c.fillText("wifi", a.x + 8, (a.y + b.y) / 2);
-
-      phone(c, K, px, py, phW, phH);
-
-      c.save(); c.shadowColor = K.acc; c.shadowBlur = 14;
-      c.fillStyle = K.e2; c.strokeStyle = K.acc; c.lineWidth = 1.3;
-      rr(c, bx, by, brW, brH, 10); c.fill(); c.restore();
-      c.strokeStyle = K.line; rr(c, bx, by, brW, brH, 10); c.stroke();
-      mono(c, narrow ? 9.5 : 10.5, K.text, "center"); c.fillText("BRIDGE", bx + brW / 2, by + brH * 0.38);
-      mono(c, narrow ? 8.5 : 9, K.t3, "center"); c.fillText("pi · dongle", bx + brW / 2, by + brH * 0.7);
-
-      var u0 = { x: bx + brW + 4, y: by + 16 };
-      var u1 = { x: mx - 8, y: my + moH * 0.3 };
-      c.strokeStyle = K.acc2; c.lineWidth = 1.3; c.globalAlpha = 0.7;
-      c.beginPath(); c.moveTo(u0.x, u0.y); c.bezierCurveTo(u0.x + 40, u0.y - 14, u1.x - 40, u1.y - 8, u1.x, u1.y); c.stroke();
-      c.globalAlpha = 1;
-      mono(c, 9, K.t4, "center");
-      c.fillText(narrow ? "USB HID" : "USB · a real keyboard", (u0.x + u1.x) / 2, u0.y - 18);
-
-      var q = cubic(u0, { x: u0.x + 40, y: u0.y - 14 }, { x: u1.x - 40, y: u1.y - 8 }, u1, ez(p));
-      var code = SEQ[si].code;
-      mono(c, 9.5, K.acc, "center");
-      var tw = c.measureText(code).width;
-      c.save(); c.shadowColor = K.acc; c.shadowBlur = 7;
-      c.fillStyle = K.e0; c.strokeStyle = K.line; rr(c, q.x - tw / 2 - 6, q.y - 8.5, tw + 12, 17, 5); c.fill(); c.stroke();
-      c.restore();
-      c.fillStyle = K.acc; c.fillText(code, q.x, q.y + 0.5);
-
-      var h0 = { x: mx - 8, y: my + moH * 0.78 };
-      var h1 = { x: bx + brW * 0.7, y: by + brH + 4 };
-      c.strokeStyle = K.t4; c.lineWidth = 1.1; c.setLineDash([4, 4]);
-      c.beginPath(); c.moveTo(h0.x, h0.y); c.bezierCurveTo(h0.x - 50, h0.y + 14, h1.x + 40, h1.y + 22, h1.x, h1.y); c.stroke();
-      c.setLineDash([]);
-      mono(c, 9, K.t4, "center");
-      c.fillText(narrow ? "HDMI" : "HDMI capture · the eyes", (h0.x + h1.x) / 2 + 10, h0.y + 26);
+      // bridge LED heartbeat
+      glowDot(c, K.acc, L.bx + 9, L.by + 9, 1.6 + 0.5 * Math.sin(t * 3));
+      // byte chip on the usb path
+      var q = cubic(L.u0, { x: L.u0.x + 40, y: L.u0.y - 14 }, { x: L.u1.x - 40, y: L.u1.y - 8 }, L.u1, ez(p));
+      chipBox(c, K, q.x, q.y, SEQ[si].code, 9.5);
+      // capture frames flowing back
       for (var k = 0; k < 3; k++) {
         var fp = ((t * 0.35 + k / 3) % 1);
-        var fq = cubic(h0, { x: h0.x - 50, y: h0.y + 14 }, { x: h1.x + 40, y: h1.y + 22 }, h1, fp);
+        var fq = cubic(L.h0, { x: L.h0.x - 50, y: L.h0.y + 14 }, { x: L.h1.x + 40, y: L.h1.y + 22 }, L.h1, fp);
         c.fillStyle = K.t3; c.globalAlpha = 0.8;
         c.fillRect(fq.x - 2.5, fq.y - 2, 5, 4); c.globalAlpha = 1;
       }
-
-      c.fillStyle = K.e2; c.strokeStyle = K.borderHi; c.lineWidth = 1.3;
-      c.setLineDash([4, 4]); rr(c, mx, my, moW, moH, 10); c.fill(); c.stroke(); c.setLineDash([]);
-      c.fillStyle = K.e0; rr(c, mx + 6, my + 6, moW - 12, moH - 12, 6); c.fill();
-
-      var fs = narrow ? 9.5 : 10.5;
-      var tx = mx + (narrow ? 14 : 18), ty = my + 22;
-      mono(c, 9.5, K.t3, "left"); c.fillText(narrow ? "BOOT ORDER" : "BOOT ORDER · F2 SETUP", tx, ty);
+      // BIOS rows over the blue
+      var bx2 = L.mx + 8, bw2 = L.moW - 16;
+      var tx = bx2 + 12, ty = L.my + 8 + (L.narrow ? 26 : 30);
+      var rstep = L.narrow ? 14 : 17, fs = L.narrow ? 8.5 : 9.5;
       for (var r = 0; r < ROWS.length; r++) {
-        var ry = ty + 18 + r * (narrow ? 16 : 19);
+        var ry = ty + r * rstep;
         if (r === hl) {
-          c.fillStyle = K.ghost;
-          rr(c, tx - 5, ry - 8, moW - (narrow ? 28 : 38), 16, 4); c.fill();
-          if (flash > 0) { c.strokeStyle = K.acc; c.globalAlpha = flash; rr(c, tx - 5, ry - 8, moW - (narrow ? 28 : 38), 16, 4); c.stroke(); c.globalAlpha = 1; }
+          c.fillStyle = RL.bios.sel;
+          c.fillRect(tx - 4, ry - 6.5, bw2 - 26, 13);
+          if (flash > 0) {
+            c.strokeStyle = "#ffffff"; c.globalAlpha = flash; c.lineWidth = 1;
+            c.strokeRect(tx - 4, ry - 6.5, bw2 - 26, 13); c.globalAlpha = 1;
+          }
         }
-        mono(c, fs, r === hl ? K.acc : K.t2, "left");
+        mono(c, fs, r === hl ? RL.bios.selTxt : RL.bios.txt, "left");
         c.fillText((r + 1) + ". " + ROWS[r], tx, ry);
       }
-      mono(c, 9, K.t4, "center");
-      c.fillText(narrow ? "no OS needed" : "no OS · nothing runs here", mx + moW / 2, my + moH + 13);
     };
   };
+  SIG.oob.fps = 48;
 
-  /* =================== USE-CASE VIGNETTES ===================
-     Devices stay on the dark deck (a TV is dark glass even on a light page);
-     wires and captions on the card follow the page theme. */
-  SIG["uc-tv"] = function (c, dim) {
+  /* =================== USE-CASE VIGNETTES =================== */
+
+  /* a real TV launcher: search field, app tiles, the phone typing into it */
+  SIG["uc-tv"] = function (c, dim, S) {
     var loop = typeLoop(["interstellar", "wifi password", "jazz radio"], 0.22, 1.3);
+    function lay(W, H) {
+      return { tw: Math.min(W * 0.74, 212), th: H - 24 };
+    }
+    function drawShell(g, W, H) {
+      var L = lay(W, H), K = DK;
+      shadowUnder(g, L.tw / 2, L.th + 10, L.tw);
+      g.fillStyle = "#0c0e12"; g.strokeStyle = "rgba(255,255,255,0.12)"; g.lineWidth = 1.2;
+      rr(g, 0, 2, L.tw, L.th, 6); g.fill(); g.stroke();
+      g.fillStyle = "#101418"; rr(g, 3, 5, L.tw - 6, L.th - 6, 4); g.fill();
+      sheen(g, 3, 5, L.tw - 6, L.th - 6, 4);
+      // legs
+      g.strokeStyle = K.e3; g.lineWidth = 2.5; g.lineCap = "round";
+      g.beginPath(); g.moveTo(L.tw * 0.2, L.th + 2); g.lineTo(L.tw * 0.16, L.th + 9);
+      g.moveTo(L.tw * 0.8, L.th + 2); g.lineTo(L.tw * 0.84, L.th + 9); g.stroke();
+      // search field
+      g.fillStyle = "rgba(255,255,255,0.08)"; g.strokeStyle = "rgba(255,255,255,0.16)"; g.lineWidth = 1;
+      rr(g, 13, 14, L.tw - 26, 20, 5); g.fill(); g.stroke();
+      // app tiles
+      var n = 4, gap = 7, tw2 = (L.tw - 26 - gap * (n - 1)) / n;
+      for (var i = 0; i < n; i++) {
+        var x = 13 + i * (tw2 + gap), y = 42;
+        var tg = g.createLinearGradient(0, y, 0, y + 16);
+        tg.addColorStop(0, RL.tv[i]); tg.addColorStop(1, "rgba(0,0,0,0.35)");
+        g.fillStyle = RL.tv[i]; rr(g, x, y, tw2, 16, 3); g.fill();
+        g.fillStyle = "rgba(0,0,0,0.25)"; rr(g, x, y + 9, tw2, 7, 3); g.fill();
+        g.fillStyle = "rgba(255,255,255,0.3)"; g.fillRect(x + 2, y + 1, tw2 - 4, 1);
+      }
+      // the phone, small, lower right
+      phoneShell(g, K, W - 33, H - 56, 26, 50);
+      g.strokeStyle = P.border; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(W - 37, H - 32); g.quadraticCurveTo(L.tw + 14, H * 0.42, L.tw - 4, 26); g.stroke();
+    }
     return function (t, dt) {
-      var D = dim(), W = D.W, H = D.H, K = DK;
+      var D = dim(), W = D.W, H = D.H, K = DK, L = lay(W, H);
       c.clearRect(0, 0, W, H);
+      c.drawImage(S.shell(drawShell), 0, 0, W, H);
       loop.update(dt);
-      var tw = Math.min(W * 0.74, 210), th = H - 26;
-      c.fillStyle = K.e2; c.strokeStyle = K.borderHi; c.lineWidth = 1.2;
-      rr(c, 0, 4, tw, th, 8); c.fill(); c.stroke();
-      c.fillStyle = K.e0; rr(c, 4, 8, tw - 8, th - 8, 5); c.fill();
-      c.strokeStyle = K.border; c.fillStyle = K.e1;
-      rr(c, 14, 18, tw - 28, 22, 5); c.fill(); c.stroke();
-      mono(c, 10.5, K.acc, "left");
-      c.fillText(loop.typed, 22, 29.5);
-      if ((t * 2 | 0) % 2 === 0) c.fillRect(24 + c.measureText(loop.typed).width, 24, 6, 11);
-      mono(c, 9, K.t4, "left"); c.fillText("SEARCH", 22, 52);
-      var px = W - 34, py = H - 58;
-      phone(c, K, px, py, 26, 50);
+      mono(c, 10, "#f2f2f5", "left");
+      c.fillText(loop.typed, 21, 24.5);
+      if ((t * 2 | 0) % 2 === 0) c.fillRect(23 + c.measureText(loop.typed).width, 19, 5.5, 11);
       if (loop.mode === "type" && loop.flight) {
         c.globalAlpha = 1 - loop.p;
-        glowDot(c, K, px + 13, py + 30, 2.6);
+        glowDot(c, K.acc, W - 20, H - 26, 2.4);
         c.globalAlpha = 1;
       }
-      c.strokeStyle = P.border; c.lineWidth = 1;
-      c.beginPath(); c.moveTo(px - 4, py + 24); c.quadraticCurveTo(tw + 16, H * 0.4, tw - 2, 30); c.stroke();
     };
   };
 
-  SIG["uc-bios"] = function (c, dim) {
+  /* the blue BIOS, small */
+  SIG["uc-bios"] = function (c, dim, S) {
     var rows = ["NVME SSD", "USB DRIVE", "PXE BOOT"];
     var hl = 0, p = 0, dir = 1, chip = 0;
+    function lay(W, H) { return { bw: Math.min(W * 0.64, 185) }; }
+    function drawShell(g, W, H) {
+      var L = lay(W, H);
+      shadowUnder(g, L.bw / 2, H - 4, L.bw);
+      biosBox(g, 0, 3, L.bw, H - 12, "BOOT MENU", null);
+    }
     return function (t, dt) {
-      var D = dim(), W = D.W, H = D.H, K = DK;
+      var D = dim(), W = D.W, H = D.H, L = lay(W, H);
       c.clearRect(0, 0, W, H);
+      c.drawImage(S.shell(drawShell), 0, 0, W, H);
       p += dt / 0.9; chip = Math.max(0, chip - dt * 1.6);
       if (p >= 1) { p = 0; hl += dir; if (hl >= rows.length - 1 || hl <= 0) dir *= -1; chip = 1; }
-      var bw = Math.min(W * 0.66, 190);
-      c.fillStyle = K.e0; c.strokeStyle = K.borderHi; c.lineWidth = 1.2;
-      c.setLineDash([4, 4]); rr(c, 0, 4, bw, H - 12, 7); c.fill(); c.stroke(); c.setLineDash([]);
-      mono(c, 8.5, K.t4, "left"); c.fillText("BOOT MENU", 12, 18);
       for (var r = 0; r < rows.length; r++) {
-        var ry = 33 + r * 17;
-        if (r === hl) { c.fillStyle = K.ghost; rr(c, 8, ry - 7.5, bw - 16, 15, 3); c.fill(); }
-        mono(c, 9.5, r === hl ? K.acc : K.t3, "left");
-        c.fillText(rows[r], 13, ry);
+        var ry = 31 + r * 15;
+        if (r === hl) { c.fillStyle = RL.bios.sel; c.fillRect(11, ry - 6, L.bw - 22, 12); }
+        mono(c, 8.5, r === hl ? RL.bios.selTxt : RL.bios.txt, "left");
+        c.fillText(rows[r], 15, ry);
       }
+      mono(c, 8.5, P.t4, "left"); c.fillText("HID →", L.bw + 14, H / 2 - 18);
       if (chip > 0) {
-        mono(c, 9.5, P.acc, "center");
         c.globalAlpha = chip;
-        var label = dir > 0 ? "0x51" : "0x52";
-        var tw2 = c.measureText(label).width;
-        c.fillStyle = P.e1; c.strokeStyle = P.line;
-        rr(c, bw + 14, H / 2 - 9, tw2 + 14, 18, 5); c.fill(); c.stroke();
-        c.fillStyle = P.acc; c.fillText(label, bw + 21 + tw2 / 2, H / 2 + 0.5);
+        chipBox(c, P, L.bw + 38, H / 2, dir > 0 ? "0x51" : "0x52", 9);
         c.globalAlpha = 1;
       }
-      mono(c, 8.5, P.t4, "left"); c.fillText("HID →", bw + 14, H / 2 - 18);
     };
   };
 
-  SIG["uc-couch"] = function (c, dim) {
+  /* a real video player: sunset frame, play state, gliding cursor */
+  SIG["uc-couch"] = function (c, dim, S) {
     var prog = 0.18, playing = true, cx = 0, cy = 0, clickT = -9;
+    function lay(W, H) { return { ww: Math.min(W * 0.8, 220), wh: H - 16 }; }
+    function drawShell(g, W, H) {
+      var L = lay(W, H), K = DK;
+      windowChrome(g, K, 0, 2, L.ww, L.wh, "now playing");
+      // the video: a sunset
+      var vx = 4, vy = 19, vw = L.ww - 8, vh = L.wh - 23;
+      g.save(); rr(g, vx, vy, vw, vh, 5); g.clip();
+      var sky = g.createLinearGradient(0, vy, 0, vy + vh);
+      sky.addColorStop(0, RL.sun[0]); sky.addColorStop(0.55, RL.sun[1]); sky.addColorStop(1, RL.sun[2]);
+      g.fillStyle = sky; g.fillRect(vx, vy, vw, vh);
+      var sun = g.createRadialGradient(vx + vw * 0.62, vy + vh * 0.62, 1, vx + vw * 0.62, vy + vh * 0.62, vh * 0.45);
+      sun.addColorStop(0, "rgba(255,225,170,0.9)"); sun.addColorStop(1, "rgba(255,225,170,0)");
+      g.fillStyle = sun; g.beginPath(); g.arc(vx + vw * 0.62, vy + vh * 0.62, vh * 0.45, 0, TAU); g.fill();
+      g.fillStyle = "#150c1c";
+      g.beginPath(); g.moveTo(vx, vy + vh);
+      g.quadraticCurveTo(vx + vw * 0.3, vy + vh * 0.55, vx + vw * 0.55, vy + vh * 0.86);
+      g.quadraticCurveTo(vx + vw * 0.75, vy + vh * 1.0, vx + vw, vy + vh * 0.88);
+      g.lineTo(vx + vw, vy + vh); g.closePath(); g.fill();
+      // control scrim
+      g.fillStyle = "rgba(0,0,0,0.38)"; g.fillRect(vx, vy + vh - 14, vw, 14);
+      g.restore();
+    }
     return function (t, dt) {
-      var D = dim(), W = D.W, H = D.H, K = DK;
+      var D = dim(), W = D.W, H = D.H, K = DK, L = lay(W, H);
       c.clearRect(0, 0, W, H);
+      c.drawImage(S.shell(drawShell), 0, 0, W, H);
       if (playing) prog = (prog + dt * 0.045) % 1;
-      var ww = Math.min(W * 0.8, 220), wh = H - 18;
-      c.fillStyle = K.e2; c.strokeStyle = K.borderHi; c.lineWidth = 1.2;
-      rr(c, 0, 4, ww, wh, 8); c.fill(); c.stroke();
-      c.fillStyle = K.e0; rr(c, 4, 16, ww - 8, wh - 20, 5); c.fill();
-      c.fillStyle = K.t4;
-      c.beginPath(); c.arc(12, 10.5, 2, 0, TAU); c.arc(20, 10.5, 2, 0, TAU); c.fill();
-      var gx = ww / 2, gy = 8 + (wh - 16) / 2;
-      c.fillStyle = K.t2;
-      if (playing) { c.fillRect(gx - 7, gy - 8, 4.5, 16); c.fillRect(gx + 2.5, gy - 8, 4.5, 16); }
-      else { c.beginPath(); c.moveTo(gx - 6, gy - 9); c.lineTo(gx + 9, gy); c.lineTo(gx - 6, gy + 9); c.closePath(); c.fill(); }
-      c.strokeStyle = K.border; c.lineWidth = 3; c.lineCap = "round";
-      c.beginPath(); c.moveTo(14, wh - 8); c.lineTo(ww - 14, wh - 8); c.stroke();
+      var vx = 4, vy = 19, vw = L.ww - 8, vh = L.wh - 23;
+      var by = vy + vh - 7;
+      // play / pause glyph in the scrim
+      c.fillStyle = "#fff";
+      if (playing) { c.fillRect(vx + 8, by - 4, 2.6, 8); c.fillRect(vx + 13, by - 4, 2.6, 8); }
+      else { c.beginPath(); c.moveTo(vx + 8, by - 4.5); c.lineTo(vx + 16, by); c.lineTo(vx + 8, by + 4.5); c.closePath(); c.fill(); }
+      // timeline
+      c.strokeStyle = "rgba(255,255,255,0.35)"; c.lineWidth = 2.4; c.lineCap = "round";
+      c.beginPath(); c.moveTo(vx + 24, by); c.lineTo(vx + vw - 10, by); c.stroke();
       c.strokeStyle = K.acc;
-      c.beginPath(); c.moveTo(14, wh - 8); c.lineTo(14 + (ww - 28) * prog, wh - 8); c.stroke();
+      c.beginPath(); c.moveTo(vx + 24, by); c.lineTo(vx + 24 + (vw - 34) * prog, by); c.stroke();
+      // gliding cursor, click toggles play
       var ph = (t % 5) / 5;
-      var targX = gx + 1, targY = gy + 2;
-      if (ph < 0.55) { cx = lerp(W * 0.86, targX, ez(ph / 0.55)); cy = lerp(H * 0.78, targY, ez(ph / 0.55)); }
+      var targX = vx + 12, targY = by - 1;
+      if (ph < 0.55) { cx = lerp(W * 0.86, targX, ez(ph / 0.55)); cy = lerp(H * 0.3, targY, ez(ph / 0.55)); }
       else { cx = targX; cy = targY; }
       if (ph >= 0.56 && ph < 0.585 && t - clickT > 2) { clickT = t; playing = !playing; }
       var rip = t - clickT;
@@ -451,52 +628,66 @@
         c.strokeStyle = K.acc; c.globalAlpha = 1 - rip * 2; c.lineWidth = 1.2;
         c.beginPath(); c.arc(cx, cy, 4 + rip * 26, 0, TAU); c.stroke(); c.globalAlpha = 1;
       }
-      c.fillStyle = K.text;
-      c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx + 8, cy + 8.5); c.lineTo(cx + 3.4, cy + 8.8); c.lineTo(cx + 1.4, cy + 12.6); c.closePath(); c.fill();
+      cursorArrow(c, cx, cy, "#fff");
     };
   };
 
-  SIG["uc-present"] = function (c, dim) {
-    /* a slide is white in real life: fixed light surface in both themes */
-    var SL = { bg: "oklch(0.965 0.003 265)", ink: "oklch(0.22 0.012 265)", edge: "oklch(0.84 0.006 265)" };
-    var n = 12, slide = 0, tapT = -9;
-    return function (t) {
-      var D = dim(), W = D.W, H = D.H;
-      c.clearRect(0, 0, W, H);
-      var per = 2.6;
-      var cur = Math.floor(t / per);
-      if (cur !== slide) { slide = cur; tapT = t; }
-      var sw = Math.min(W * 0.42, 110), sh = H - 22;
-      c.fillStyle = SL.bg; c.strokeStyle = SL.edge; c.lineWidth = 1.2;
-      rr(c, 0, 6, sw, sh, 7); c.fill(); c.stroke();
-      var k = clamp((t - tapT) / 0.4, 0, 1);
-      var num = n + slide;
-      c.save(); c.beginPath(); rr(c, 0, 6, sw, sh, 7); c.clip();
-      c.font = "600 26px " + P.mono; c.textAlign = "center"; c.textBaseline = "middle";
-      c.fillStyle = SL.ink;
-      c.fillText(String(num), sw / 2 + (1 - ez(k)) * sw * 0.6, 6 + sh / 2);
-      if (k < 1) { c.globalAlpha = 1 - k; c.fillStyle = SL.edge; c.fillText(String(num - 1), sw / 2 - ez(k) * sw * 0.6, 6 + sh / 2); c.globalAlpha = 1; }
-      c.restore();
-      mono(c, 8.5, P.t4, "center"); c.fillText("SLIDE", sw / 2, H - 6);
-      var nx = sw + 18;
-      mono(c, 8.5, P.t4, "left"); c.fillText("NOTES", nx, 16);
+  /* a real slide on a projector white, notes beside, tap to advance */
+  SIG["uc-present"] = function (c, dim, S) {
+    var slide = 0, tapT = -9;
+    function lay(W, H) { return { sw: Math.min(W * 0.46, 118), sh: H - 20 }; }
+    function drawShell(g, W, H) {
+      var L = lay(W, H);
+      shadowUnder(g, L.sw / 2, L.sh + 8, L.sw);
+      g.fillStyle = "#f4f4f6"; g.strokeStyle = "#c9c9d2"; g.lineWidth = 1;
+      rr(g, 0, 4, L.sw, L.sh, 5); g.fill(); g.stroke();
+      // slide content: title and a small bar chart
+      g.fillStyle = "#3a3a44"; g.fillRect(10, 13, L.sw * 0.55, 4.5);
+      g.fillStyle = "#b9b9c2"; g.fillRect(10, 22, L.sw * 0.38, 3);
+      var bx = 12, bw = (L.sw - 34) / 3;
+      var hs = [0.35, 0.62, 0.88];
       for (var i = 0; i < 3; i++) {
-        c.strokeStyle = i === 0 ? P.t2 : P.border; c.lineWidth = i === 0 ? 2 : 1.6; c.lineCap = "round";
-        c.beginPath(); c.moveTo(nx, 30 + i * 13); c.lineTo(nx + (W - nx - 12) * (i === 0 ? 0.92 : 0.7 - i * 0.12), 30 + i * 13); c.stroke();
+        g.fillStyle = i === 2 ? "#3ec877" : "#c2c2cc";
+        var bh = (L.sh - 48) * hs[i];
+        g.fillRect(bx + i * (bw + 5), L.sh - 8 - bh, bw, bh);
       }
+      g.strokeStyle = "#d8d8de"; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(10, L.sh - 7.5); g.lineTo(L.sw - 10, L.sh - 7.5); g.stroke();
+      // notes column on the card
+      var nx = L.sw + 18;
+      g.font = "8.5px " + P.mono; g.fillStyle = P.t4; g.textAlign = "left"; g.textBaseline = "middle";
+      g.fillText("NOTES", nx, 14);
+      g.strokeStyle = P.t3; g.lineWidth = 2; g.lineCap = "round";
+      g.beginPath(); g.moveTo(nx, 28); g.lineTo(nx + (W - nx - 14) * 0.92, 28); g.stroke();
+      g.strokeStyle = P.border; g.lineWidth = 1.6;
+      g.beginPath(); g.moveTo(nx, 41); g.lineTo(nx + (W - nx - 14) * 0.58, 41); g.stroke();
+      g.beginPath(); g.moveTo(nx, 54); g.lineTo(nx + (W - nx - 14) * 0.46, 54); g.stroke();
+      g.fillText("tap → next", nx + 26, H - 12);
+    }
+    return function (t) {
+      var D = dim(), W = D.W, H = D.H, L = lay(W, H);
+      c.clearRect(0, 0, W, H);
+      c.drawImage(S.shell(drawShell), 0, 0, W, H);
+      var per = 2.6, cur = Math.floor(t / per);
+      if (cur !== slide) { slide = cur; tapT = t; }
+      var k = clamp((t - tapT) / 0.35, 0, 1);
+      // page number, bottom right of the slide, ticks up with a little rise
+      mono(c, 10.5, "#3a3a44", "right");
+      c.save(); c.globalAlpha = 0.25 + 0.75 * k;
+      c.fillText(String(12 + slide), L.sw - 9, L.sh - 4 - (1 - k) * 4);
+      c.restore();
+      var nx = L.sw + 18;
       var rip = t - tapT;
       if (rip < 0.5 && rip >= 0) {
         c.strokeStyle = P.acc; c.globalAlpha = 1 - rip * 2;
-        c.beginPath(); c.arc(nx + 16, H - 14, 3 + rip * 18, 0, TAU); c.stroke(); c.globalAlpha = 1;
+        c.beginPath(); c.arc(nx + 12, H - 12, 3 + rip * 16, 0, TAU); c.stroke(); c.globalAlpha = 1;
       }
-      c.fillStyle = P.acc; c.beginPath(); c.arc(nx + 16, H - 14, 2.6, 0, TAU); c.fill();
-      mono(c, 8.5, P.t4, "left"); c.fillText("tap → next", nx + 26, H - 14);
+      c.fillStyle = P.acc; c.beginPath(); c.arc(nx + 12, H - 12, 2.4, 0, TAU); c.fill();
     };
   };
 
-  SIG["uc-agent"] = function (c, dim) {
-    /* a real session you watch: an MCP-driven cursor works a tiny UI by
-       itself, with the actual tool call shown beside it */
+  /* a watched agent session in a mini browser, MCP calls beside it */
+  SIG["uc-agent"] = function (c, dim, S) {
     var PH = [
       { d: 1.2, call: "moveto 118,46" },
       { d: 0.35, call: "click left" },
@@ -506,41 +697,43 @@
       { d: 1.3, call: null }
     ];
     var pi = 0, pt = 0, typed = 0, cx = 24, cy = 70, sx = 24, sy = 70, clickR = -9;
+    function lay(W, H) { return { sw: Math.min(W * 0.72, 205), sh: H - 14 }; }
+    function drawShell(g, W, H) {
+      var L = lay(W, H), K = DK;
+      windowChrome(g, K, 0, 2, L.sw, L.sh, "agent session");
+      // url bar
+      g.fillStyle = "rgba(255,255,255,0.07)"; g.strokeStyle = "rgba(255,255,255,0.12)"; g.lineWidth = 1;
+      rr(g, 9, 21, L.sw - 18, 12, 4); g.fill(); g.stroke();
+      g.font = "7.5px " + P.mono; g.fillStyle = K.t4; g.textAlign = "left"; g.textBaseline = "middle";
+      g.fillText("relay.local/panel", 15, 27.5);
+      g.fillStyle = P.t4; g.font = "8.5px " + P.mono;
+      g.fillText("MCP →", L.sw + 12, H / 2 - 18);
+    }
     return function (t, dt) {
-      var D = dim(), W = D.W, H = D.H, K = DK;
+      var D = dim(), W = D.W, H = D.H, K = DK, L = lay(W, H);
       c.clearRect(0, 0, W, H);
+      c.drawImage(S.shell(drawShell), 0, 0, W, H);
       pt += dt;
       if (pt >= PH[pi].d) {
         pt = 0; pi = (pi + 1) % PH.length;
         sx = cx; sy = cy;
-        if (pi === 0) { typed = 0; sx = cx = 24; sy = cy = H * 0.75; }
+        if (pi === 0) { typed = 0; sx = cx = 24; sy = cy = H * 0.8; }
         if (PH[pi].call === "click left") clickR = 0;
       }
       if (clickR >= 0) clickR += dt;
-
-      var sw = Math.min(W * 0.72, 205), sh = H - 16;
-      c.fillStyle = K.e2; c.strokeStyle = K.borderHi; c.lineWidth = 1.2;
-      rr(c, 0, 4, sw, sh, 8); c.fill(); c.stroke();
-      c.fillStyle = K.e0; rr(c, 4, 14, sw - 8, sh - 18, 5); c.fill();
-      c.fillStyle = K.t4;
-      c.beginPath(); c.arc(11, 9.5, 1.8, 0, TAU); c.arc(18, 9.5, 1.8, 0, TAU); c.fill();
-      mono(c, 8, K.t4, "right"); c.fillText("agent session", sw - 8, 9.5);
-
-      // the tiny UI it drives: a field and a GO button
-      var fx = 14, fy = sh * 0.46, fw = sw * 0.5, fh = 18;
-      var bx = fx + fw + 10, bw2 = 34;
+      var fx = 14, fy = L.sh * 0.55, fw = L.sw * 0.48, fh = 17;
+      var bx = fx + fw + 9, bw2 = 32;
       var done = pi === 5;
-      c.fillStyle = K.e1; c.strokeStyle = K.border; c.lineWidth = 1;
+      c.fillStyle = "rgba(255,255,255,0.06)"; c.strokeStyle = "rgba(255,255,255,0.13)"; c.lineWidth = 1;
       rr(c, fx, fy, fw, fh, 4); c.fill(); c.stroke();
       if (pi === 2) typed = clamp(Math.ceil(3 * pt / PH[2].d), 0, 3);
       mono(c, 9.5, K.acc, "left");
       c.fillText("rel".slice(0, typed), fx + 7, fy + fh / 2 + 0.5);
-      c.fillStyle = done ? K.ghost : K.e1; c.strokeStyle = done ? K.acc : K.border;
+      c.fillStyle = done ? K.ghost : "rgba(255,255,255,0.06)";
+      c.strokeStyle = done ? K.acc : "rgba(255,255,255,0.13)";
       rr(c, bx, fy, bw2, fh, 4); c.fill(); c.stroke();
       mono(c, 8.5, done ? K.acc : K.t3, "center");
       c.fillText("GO", bx + bw2 / 2, fy + fh / 2 + 0.5);
-
-      // the cursor, moving like a hand (eased, slightly curved)
       var txx = (pi <= 2 ? fx + fw * 0.4 : bx + bw2 / 2), tyy = fy + fh / 2 + 4;
       if (pi === 0 || pi === 3) {
         var f = ez(pt / PH[pi].d);
@@ -551,63 +744,55 @@
         c.strokeStyle = K.acc; c.globalAlpha = 1 - clickR / 0.45; c.lineWidth = 1.2;
         c.beginPath(); c.arc(cx, cy, 3 + clickR * 40, 0, TAU); c.stroke(); c.globalAlpha = 1;
       }
-      c.fillStyle = K.text;
-      c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx + 7.5, cy + 8); c.lineTo(cx + 3.2, cy + 8.3); c.lineTo(cx + 1.3, cy + 11.8); c.closePath(); c.fill();
-
-      // the tool call that caused it, on the card edge (like the HID bytes)
-      mono(c, 8.5, P.t4, "left"); c.fillText("MCP \u2192", sw + 12, H / 2 - 18);
+      cursorArrow(c, cx, cy, "#fff");
       var call = PH[pi].call;
-      if (call) {
-        mono(c, 8.5, P.acc, "left");
-        var tw2 = c.measureText(call).width;
-        c.fillStyle = P.e1; c.strokeStyle = P.line; c.lineWidth = 1;
-        rr(c, sw + 10, H / 2 - 9, Math.min(tw2 + 12, W - sw - 12), 18, 5); c.fill(); c.stroke();
-        c.fillStyle = P.acc; c.fillText(call, sw + 16, H / 2 + 0.5);
-      }
+      if (call) chipBox(c, P, L.sw + 14 + 34, H / 2, call, 8.5);
     };
   };
 
-  SIG["uc-fleet"] = function (c, dim) {
-    /* a real device directory: hostnames, live dots, latencies ticking,
-       one machine joining and dropping off */
+  /* the device directory, in a real console window */
+  SIG["uc-fleet"] = function (c, dim, S) {
     var ROWS = [
       { n: "popos", on: 1, ms: 9 },
       { n: "mediapc", on: 1, ms: 14 },
       { n: "lab-3", on: 1, ms: 22 },
       { n: "kiosk", on: 0, ms: 31 }
     ];
+    function lay(W, H) { return { pw: Math.min(W * 0.92, 250), ph: H - 10 }; }
+    function drawShell(g, W, H) {
+      var L = lay(W, H), K = DK;
+      windowChrome(g, K, 0, 2, L.pw, L.ph, "relay · devices");
+    }
     return function (t) {
-      var D = dim(), W = D.W, H = D.H, K = DK;
+      var D = dim(), W = D.W, H = D.H, K = DK, L = lay(W, H);
       c.clearRect(0, 0, W, H);
+      c.drawImage(S.shell(drawShell), 0, 0, W, H);
       var kioskOn = (t % 6) > 3;
-      var pw = Math.min(W * 0.92, 250), ph2 = H - 12;
-      c.fillStyle = K.e0; c.strokeStyle = K.borderHi; c.lineWidth = 1.2;
-      rr(c, 0, 6, pw, ph2, 8); c.fill(); c.stroke();
-      mono(c, 8, K.t4, "left"); c.fillText("DEVICES", 12, 18);
-      mono(c, 8, K.t4, "right"); c.fillText((3 + (kioskOn ? 1 : 0)) + "/4 up", pw - 12, 18);
-      var n = ROWS.length, step = (ph2 - 32) / n;
+      mono(c, 8, K.t4, "right");
+      c.fillText((3 + (kioskOn ? 1 : 0)) + "/4 up", L.pw - 10, 11.5);
+      var n = ROWS.length, top = 24, step = (L.ph - 28) / n;
       for (var i = 0; i < n; i++) {
         var r = ROWS[i];
         var on = r.on === 1 || (i === 3 && kioskOn);
-        var ry = 31 + i * step + step / 2 - 4;
+        var ry = top + i * step + step / 2 - 2;
         if (i === 3) {
           var k = (t % 6) - 3;
           if (k >= 0 && k < 0.6) {
             c.fillStyle = K.ghost; c.globalAlpha = 1 - k / 0.6;
-            rr(c, 6, ry - 7, pw - 12, 14, 3); c.fill(); c.globalAlpha = 1;
+            rr(c, 7, ry - 7, L.pw - 14, 14, 3); c.fill(); c.globalAlpha = 1;
           }
         }
         if (on) {
-          c.fillStyle = K.acc;
           c.globalAlpha = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(t * 2.4 + i * 2));
-          c.beginPath(); c.arc(15, ry, 2.4, 0, TAU); c.fill(); c.globalAlpha = 1;
+          glowDot(c, K.acc, 16, ry, 2.1);
+          c.globalAlpha = 1;
         } else {
           c.strokeStyle = K.t4; c.lineWidth = 1.1;
-          c.beginPath(); c.arc(15, ry, 2.2, 0, TAU); c.stroke();
+          c.beginPath(); c.arc(16, ry, 2.2, 0, TAU); c.stroke();
         }
-        mono(c, 9.5, on ? K.t2 : K.t4, "left"); c.fillText(r.n, 26, ry);
+        mono(c, 9.5, on ? K.t2 : K.t4, "left"); c.fillText(r.n, 27, ry);
         var ms = on ? (r.ms + Math.round(Math.sin(t * 1.7 + i * 9) * 2)) + " ms" : "offline";
-        mono(c, 9, on ? K.acc : K.t4, "right"); c.fillText(ms, pw - 12, ry);
+        mono(c, 9, on ? K.acc : K.t4, "right"); c.fillText(ms, L.pw - 10, ry);
       }
     };
   };
@@ -627,17 +812,34 @@
       cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
       c.setTransform(DPR, 0, 0, DPR, 0, 0);
     }
-    var frame = B(c, function () { return { W: W, H: H }; });
+    // cached static layer: rebuilt only on resize or theme change
+    var shellCv = null, shellKey = "";
+    var S = {
+      shell: function (draw) {
+        var key = W + "x" + H + ":" + themeVer;
+        if (shellKey !== key) {
+          shellCv = document.createElement("canvas");
+          shellCv.width = Math.round(W * DPR); shellCv.height = Math.round(H * DPR);
+          var g = shellCv.getContext("2d");
+          g.setTransform(DPR, 0, 0, DPR, 0, 0);
+          draw(g, W, H);
+          shellKey = key;
+        }
+        return shellCv;
+      }
+    };
+    var frame = B(c, function () { return { W: W, H: H }; }, S);
     size();
-    var raf = 0, last = 0, vis = false;
+    var fps = B.fps || 30, minDt = 1 / fps;
+    var raf = 0, last = 0, acc = 0, vis = false;
     function tick(ts) {
       if (!vis) { raf = 0; return; }
       var dt = last ? Math.min(0.05, (ts - last) / 1000) : 0.016;
-      last = ts;
-      frame(ts / 1000, dt);
+      last = ts; acc += dt;
+      if (acc >= minDt) { frame(ts / 1000, Math.min(acc, 0.05)); acc = 0; }
       raf = requestAnimationFrame(tick);
     }
-    function start() { if (!raf) { last = 0; raf = requestAnimationFrame(tick); } }
+    function start() { if (!raf) { last = 0; acc = 0; raf = requestAnimationFrame(tick); } }
     new ResizeObserver(function () { size(); if (REDUCED) frame(3, 0); }).observe(cv);
     var io = new IntersectionObserver(function (es) {
       vis = es[0].isIntersecting && !document.hidden;
