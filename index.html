@@ -11,6 +11,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%2365EA92'/><rect x='11' y='11' width='10' height='10' rx='3' fill='%230E0E12'/></svg>" />
 <link rel="stylesheet" href="styles.css" />
 <script src="app.js"></script>
+<script src="signal.js" defer></script>
 </head>
 <body>
 
@@ -53,6 +54,8 @@
       <a href="docs.html" class="btn primary">Download<svg class="arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
       <a href="docs.html" class="btn">Read the docs</a>
     </div>
+    <div class="hero-live"><canvas class="sig" data-sig="hero" role="img" aria-label="Live figure: a phone typing into a machine over the Relay wire protocol"></canvas></div>
+
   </div>
 </section>
 
@@ -75,28 +78,28 @@
     <div class="cards">
 
       <div class="uc">
-        <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2.5" y="4.5" width="19" height="13" rx="2"/><path d="M8 21h8M12 17.5V21"/></svg></div>
+        <canvas class="sig uc-vig" data-sig="uc-tv" aria-hidden="true"></canvas>
         <div class="uc-k"><span class="uc-num">01</span></div>
         <h3>Type on your TV.</h3>
         <p>End the thumb-twister remote. Phone keyboard into any TV's search box.</p>
       </div>
 
       <div class="uc">
-        <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M7 9l-2 1.5L7 12M11 8l-1 5"/></svg></div>
+        <canvas class="sig uc-vig" data-sig="uc-bios" aria-hidden="true"></canvas>
         <div class="uc-k"><span class="uc-num">02</span></div>
         <h3>Fix a PC that won't even boot.</h3>
         <p>Drive the BIOS from your phone, out-of-band, with nothing running on the target.</p>
       </div>
 
       <div class="uc">
-        <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M2 20h20l-1.5-3.5h-17z"/></svg></div>
+        <canvas class="sig uc-vig" data-sig="uc-couch" aria-hidden="true"></canvas>
         <div class="uc-k"><span class="uc-num">03</span></div>
         <h3>Couch control your media PC.</h3>
         <p>Trackpad, keyboard, and the screen, from across the room.</p>
       </div>
 
       <div class="uc">
-        <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h16v11H4z"/><path d="M12 15v5M8 20h8"/></svg></div>
+        <canvas class="sig uc-vig" data-sig="uc-present" aria-hidden="true"></canvas>
         <div class="uc-k"><span class="uc-num">04</span></div>
         <h3>Present without a clicker.</h3>
         <p>Slides and speaker notes on your phone, tap to advance.</p>
@@ -104,7 +107,7 @@
 
       <div class="uc">
         <span class="pill">AI</span>
-        <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="6" width="14" height="12" rx="3"/><path d="M9 11h.01M15 11h.01M12 2.5V6M9 18v3M15 18v3"/></svg></div>
+        <canvas class="sig uc-vig" data-sig="uc-agent" aria-hidden="true"></canvas>
         <div class="uc-k"><span class="uc-num">05</span></div>
         <h3>A body for your AI agent.</h3>
         <p>Let computer-use agents see and act on any machine via MCP. Even ones they can't be installed in.</p>
@@ -112,7 +115,7 @@
 
       <div class="uc">
         <span class="pill">Team</span>
-        <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="7" height="7" rx="1.5"/><rect x="14" y="4" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="6" rx="1.5"/><rect x="14" y="14" width="7" height="6" rx="1.5"/></svg></div>
+        <canvas class="sig uc-vig" data-sig="uc-fleet" aria-hidden="true"></canvas>
         <div class="uc-k"><span class="uc-num">06</span></div>
         <h3>Run a fleet from one screen.</h3>
         <p>Many machines, one device directory.</p>
@@ -145,21 +148,7 @@
         </ul>
       </div>
       <div class="mode-art">
-        <svg class="diagram" viewBox="0 0 520 220" role="img" aria-label="Phone to network to receiver diagram">
-          <rect class="dg-node" x="20" y="74" width="92" height="72" rx="10"/>
-          <text class="dg-label strong" x="66" y="106" text-anchor="middle">Phone</text>
-          <text class="dg-cap" x="66" y="126" text-anchor="middle">Relay app</text>
-          <path class="dg-flow" d="M118 110 H205" marker-end="url(#ar)"/>
-          <text class="dg-cap" x="161" y="100" text-anchor="middle">your wifi</text>
-          <rect class="dg-node" x="210" y="84" width="96" height="52" rx="10"/>
-          <text class="dg-label strong" x="258" y="114" text-anchor="middle">Network</text>
-          <path class="dg-flow" d="M312 110 H400" marker-end="url(#ar)"/>
-          <text class="dg-cap" x="356" y="100" text-anchor="middle">encrypted</text>
-          <rect class="dg-node accent" x="404" y="68" width="96" height="84" rx="10"/>
-          <text class="dg-label strong" x="452" y="104" text-anchor="middle">Receiver</text>
-          <text class="dg-cap" x="452" y="124" text-anchor="middle" style="fill:var(--accent)">booted OS</text>
-          <defs><marker id="ar" markerWidth="9" markerHeight="9" refX="6" refY="4.5" orient="auto"><path d="M0 0 L8 4.5 L0 9 z" fill="var(--accent)"/></marker></defs>
-        </svg>
+        <canvas class="sig sig-mode" data-sig="app" role="img" aria-label="Live figure: each keystroke travels from the phone as a real protocol line and lands in the receiver"></canvas>
       </div>
     </div>
 
@@ -178,28 +167,7 @@
         </ul>
       </div>
       <div class="mode-art">
-        <svg class="diagram" viewBox="0 0 520 240" role="img" aria-label="Phone to bridge to capture and USB into any target diagram">
-          <rect class="dg-node" x="16" y="92" width="86" height="64" rx="10"/>
-          <text class="dg-label strong" x="59" y="122" text-anchor="middle">Phone</text>
-          <path class="dg-flow" d="M108 124 H188" marker-end="url(#ar2)"/>
-          <text class="dg-cap" x="148" y="114" text-anchor="middle">wifi</text>
-          <rect class="dg-node accent" x="192" y="84" width="96" height="80" rx="10"/>
-          <text class="dg-label strong" x="240" y="118" text-anchor="middle">Bridge</text>
-          <text class="dg-cap" x="240" y="138" text-anchor="middle" style="fill:var(--accent)">Pi / dongle</text>
-          <!-- USB out (down-right into target) -->
-          <path class="dg-flow" d="M288 112 C 350 112, 360 96, 408 96" marker-end="url(#ar2)"/>
-          <text class="dg-cap" x="356" y="86" text-anchor="middle">USB keyboard</text>
-          <!-- HDMI capture in (up from target) -->
-          <path class="dg-flow-dash" d="M408 160 C 360 160, 350 140, 290 140" marker-end="url(#ar3)"/>
-          <text class="dg-cap" x="356" y="178" text-anchor="middle">HDMI capture</text>
-          <rect class="dg-node" x="412" y="72" width="92" height="96" rx="10" style="stroke-dasharray:3 3;"/>
-          <text class="dg-label strong" x="458" y="114" text-anchor="middle">Any target</text>
-          <text class="dg-cap" x="458" y="134" text-anchor="middle">BIOS · TV · dead OS</text>
-          <defs>
-            <marker id="ar2" markerWidth="9" markerHeight="9" refX="6" refY="4.5" orient="auto"><path d="M0 0 L8 4.5 L0 9 z" fill="var(--accent)"/></marker>
-            <marker id="ar3" markerWidth="9" markerHeight="9" refX="6" refY="4.5" orient="auto"><path d="M0 0 L8 4.5 L0 9 z" fill="var(--ink-4)"/></marker>
-          </defs>
-        </svg>
+        <canvas class="sig sig-mode" data-sig="oob" role="img" aria-label="Live figure: HID bytes from the bridge drive a BIOS boot menu while HDMI capture flows back"></canvas>
       </div>
     </div>
   </div>

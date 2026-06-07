@@ -343,3 +343,12 @@ section{ position:relative; }
 .mobile-menu.open{ display:flex; }
 .mobile-menu a{ font-family:var(--font-ui); font-size:26px; font-weight:600; padding:14px 0; border-bottom:1px solid var(--border-soft); }
 .mobile-menu .btn{ margin-top:20px; }
+
+/* ---- live signal figures (original: drawn from the real protocol) ---- */
+.sig{ display:block; width:100%; }
+.hero-live{ margin-top:56px; border:1px solid var(--border-soft); border-radius:var(--r-lg);
+  background:var(--e1); box-shadow:var(--sh-2); overflow:hidden; }
+.hero-live .sig{ height:clamp(250px,34vw,330px); }
+.sig-mode{ height:clamp(225px,28vw,265px); }
+.uc-vig{ height:96px; }
+@media (max-width:700px){ .uc-vig{ height:88px; } .hero-live .sig{ height:230px; } }
