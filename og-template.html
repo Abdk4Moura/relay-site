@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:1200px; height:630px; }
+  body {
+    font-family:"Space Grotesk", sans-serif;
+    background:oklch(0.145 0.008 265);
+    background-image:radial-gradient(900px 460px at 50% -8%, oklch(0.84 0.17 152 / 0.16), transparent 70%);
+    color:oklch(0.97 0.004 265);
+    padding:84px 90px;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    position:relative;
+  }
+  .wordmark { display:flex; align-items:center; gap:18px; }
+  .logo-mark {
+    width:54px; height:54px; border-radius:15px;
+    background:linear-gradient(150deg, oklch(0.84 0.17 152), oklch(0.72 0.15 152));
+    box-shadow:0 0 28px -4px oklch(0.84 0.17 152 / 0.45);
+    display:grid; place-items:center;
+  }
+  .logo-mark::after {
+    content:""; width:20px; height:20px; border-radius:6px;
+    background:oklch(0.145 0.008 265);
+  }
+  .wm-text {
+    font-weight:700; font-size:40px; letter-spacing:.02em;
+  }
+  .body { margin-top:auto; }
+  .headline {
+    font-weight:700; font-size:66px; line-height:1.07; letter-spacing:-0.02em;
+    max-width:22ch; color:oklch(0.985 0.003 265);
+  }
+  .kicker {
+    margin-top:34px;
+    font-family:"JetBrains Mono", monospace;
+    font-weight:500; font-size:22px; letter-spacing:.02em;
+    color:oklch(0.84 0.17 152);
+  }
+  .frame {
+    position:absolute; inset:0;
+    border:1px solid oklch(0.305 0.010 265 / 0.6);
+  }
+</style>
+</head>
+<body>
+  <div class="frame"></div>
+  <div class="wordmark">
+    <span class="logo-mark"></span>
+    <span class="wm-text">RELAY</span>
+  </div>
+  <div class="body">
+    <div class="headline">Remote control for the machines remote control can't reach.</div>
+    <div class="kicker">phone to machine · nothing on the target</div>
+  </div>
+</body>
+</html>
