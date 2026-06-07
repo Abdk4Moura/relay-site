@@ -268,7 +268,7 @@
       var py = (H - 30 - phH) / 2 + 6, px = m;
       var moW = clamp(W * 0.34, 170, 320), moH = moW * 0.62;
       var mx = W - m - moW, my = (H - 30 - moH - 14) / 2 + 2;
-      var a = { x: px + phW + 6, y: py + phH * 0.42 };
+      var a = { x: px + phW + 9, y: py + phH * 0.42 };
       var b = { x: mx - 8, y: my + moH * 0.5 };
       return { narrow: narrow, m: m, phW: phW, phH: phH, px: px, py: py, moW: moW, moH: moH, mx: mx, my: my,
         a: a, b: b,
@@ -331,10 +331,10 @@
     function lay(W, H) {
       var narrow = W < 460;
       var phW = clamp(W * 0.14, 44, 70), phH = phW * 1.95;
-      var px = narrow ? 4 : 8, py = (H - phH) / 2 - 6;
+      var px = narrow ? 6 : 8, py = (H - phH) / 2 - 6;
       var lsW = clamp(W * 0.42, 150, 210), lsH = lsW * 0.62;
       var lx = W - lsW - (narrow ? 14 : 20), ly = (H - lsH) / 2 - 12;
-      var a = { x: px + phW + 6, y: py + phH * 0.4 };
+      var a = { x: px + phW + 9, y: py + phH * 0.4 };
       var b = { x: lx - 12, y: ly + lsH * 0.55 };
       return { narrow: narrow, phW: phW, phH: phH, px: px, py: py, lsW: lsW, lsH: lsH, lx: lx, ly: ly,
         a: a, b: b,
@@ -345,8 +345,10 @@
       var L = lay(W, H), K = DK;
       g.strokeStyle = K.border; g.lineWidth = 1.2;
       g.beginPath(); g.moveTo(L.a.x, L.a.y); g.bezierCurveTo(L.c1.x, L.c1.y, L.c2.x, L.c2.y, L.b.x, L.b.y); g.stroke();
-      g.font = "9.5px " + P.mono; g.fillStyle = K.t4; g.textAlign = "center"; g.textBaseline = "middle";
-      g.fillText(L.narrow ? "encrypted" : "your network · encrypted", lerp(L.a.x, L.b.x, 0.5), Math.min(L.a.y, L.b.y) - 14);
+      if (!L.narrow) {
+        g.font = "9.5px " + P.mono; g.fillStyle = K.t4; g.textAlign = "center"; g.textBaseline = "middle";
+        g.fillText("your network · encrypted", lerp(L.a.x, L.b.x, 0.5), Math.min(L.a.y, L.b.y) - 16);
+      }
       phoneShell(g, K, L.px, L.py, L.phW, L.phH);
       keyGridShell(g, L.px + 6, L.py + L.phH * 0.46, L.phW - 12, L.phH * 0.44);
       laptopShell(g, K, L.lx, L.ly, L.lsW, L.lsH);
@@ -354,9 +356,9 @@
         g.fillStyle = RL.tl[i];
         g.beginPath(); g.arc(L.lx + 15 + i * 8, L.ly + 14, 2.3, 0, TAU); g.fill();
       }
-      g.font = "8.5px " + P.mono; g.fillStyle = K.t4; g.textAlign = "left";
-      g.fillText("receiver · open source", L.lx + 40, L.ly + 14.5);
-      g.fillText("uinput · SendInput · CGEvent", L.lx + 14, L.ly + L.lsH - 13);
+      g.font = "8.5px " + P.mono; g.fillStyle = K.t4; g.textAlign = "left"; g.textBaseline = "middle";
+      g.fillText(L.narrow ? "receiver" : "receiver · open source", L.lx + 40, L.ly + 14.5);
+      g.fillText(L.narrow ? "uinput · SendInput" : "uinput · SendInput · CGEvent", L.lx + 14, L.ly + L.lsH - 13);
     }
     return function (t, dt) {
       var D = dim(), W = D.W, H = D.H, K = DK, L = lay(W, H);
@@ -365,8 +367,11 @@
       loop.update(dt);
       flashKey(c, K, L.px + 6, L.py + L.phH * 0.46, L.phW - 12, L.phH * 0.44, loop.flight, loop.mode === "type" ? 1 - loop.p : 0);
       if (loop.mode === "type" && loop.flight) {
-        var q = cubic(L.a, L.c1, L.c2, L.b, ez(clamp(loop.p / 0.85, 0, 1)));
-        chipBox(c, K, q.x, q.y, '{"t":"key","k":"' + loop.flight + '"}', 9.5);
+        var pp = ez(clamp(loop.p / 0.85, 0, 1));
+        var q = cubic(L.a, L.c1, L.c2, L.b, pp);
+        c.globalAlpha = clamp(Math.min(pp / 0.08, (1 - pp) / 0.12), 0, 1);
+        chipBox(c, K, q.x, q.y, L.narrow ? '"' + loop.flight + '"' : '{"t":"key","k":"' + loop.flight + '"}', L.narrow ? 9 : 9.5);
+        c.globalAlpha = 1;
       }
       mono(c, 14, K.text, "left");
       c.fillText(loop.typed, L.lx + 14, L.ly + L.lsH * 0.55);
@@ -388,28 +393,43 @@
     ];
     var si = 0, p = 0, hl = 0, flash = 0;
     function lay(W, H) {
-      var narrow = W < 520;
+      var compact = W < 420;
+      if (compact) {
+        var brW = clamp(W * 0.26, 78, 100), brH = 44;
+        var bx = 8, by = H * 0.52 - brH / 2;
+        var moW = clamp(W * 0.52, 150, 200), moH = moW * 0.68;
+        var mx = W - moW - 8, my = (H - moH) / 2 - 8;
+        return { compact: true, brW: brW, brH: brH, bx: bx, by: by, moW: moW, moH: moH, mx: mx, my: my,
+          u0: { x: bx + brW + 4, y: by + 10 }, u1: { x: mx - 8, y: my + moH * 0.28 },
+          h0: { x: mx - 8, y: my + moH * 0.8 }, h1: { x: bx + brW * 0.75, y: by + brH + 4 } };
+      }
       var phW = clamp(W * 0.115, 40, 60), phH = phW * 1.95;
-      var px = narrow ? 2 : 6, py = 10;
-      var brW = clamp(W * 0.2, 76, 112), brH = narrow ? 44 : 52;
-      var bx = W * (narrow ? 0.26 : 0.30), by = H * 0.54 - brH / 2;
+      var px = 6, py = 10;
+      var brW = clamp(W * 0.2, 76, 112), brH = 50;
       var moW = clamp(W * 0.36, 150, 220), moH = moW * 0.68;
-      var mx = W - moW - (narrow ? 8 : 14), my = (H - moH) / 2 - 10;
-      return { narrow: narrow, phW: phW, phH: phH, px: px, py: py, brW: brW, brH: brH, bx: bx, by: by,
+      var mx = W - moW - 14, my = (H - moH) / 2 - 10;
+      var bx = Math.min(W * 0.30, mx - brW - 46);
+      var by = H * 0.56 - brH / 2;
+      return { compact: false, phW: phW, phH: phH, px: px, py: py, brW: brW, brH: brH, bx: bx, by: by,
         moW: moW, moH: moH, mx: mx, my: my,
-        u0: { x: bx + brW + 4, y: by + 14 }, u1: { x: mx - 8, y: my + moH * 0.3 },
+        u0: { x: bx + brW + 4, y: by + 12 }, u1: { x: mx - 8, y: my + moH * 0.3 },
         h0: { x: mx - 8, y: my + moH * 0.78 }, h1: { x: bx + brW * 0.7, y: by + brH + 4 } };
     }
     function drawShell(g, W, H) {
       var L = lay(W, H), K = DK;
-      // phone -> bridge wifi line
-      var a = { x: L.px + L.phW / 2, y: L.py + L.phH + 4 };
-      var b = { x: L.bx + L.brW * 0.3, y: L.by - 4 };
-      g.strokeStyle = K.border; g.lineWidth = 1.2;
-      g.beginPath(); g.moveTo(a.x, a.y); g.bezierCurveTo(a.x, a.y + 26, b.x - 30, b.y - 22, b.x, b.y); g.stroke();
-      g.font = "9px " + P.mono; g.fillStyle = K.t4; g.textAlign = "left"; g.textBaseline = "middle";
-      g.fillText("wifi", a.x + 8, (a.y + b.y) / 2);
-      phoneShell(g, K, L.px, L.py, L.phW, L.phH);
+      g.textBaseline = "middle";
+      if (!L.compact) {
+        var a = { x: L.px + L.phW / 2, y: L.py + L.phH + 4 };
+        var b = { x: L.bx + L.brW * 0.3, y: L.by - 4 };
+        g.strokeStyle = K.border; g.lineWidth = 1.2;
+        g.beginPath(); g.moveTo(a.x, a.y); g.bezierCurveTo(a.x, a.y + 24, b.x - 34, b.y - 20, b.x, b.y); g.stroke();
+        g.font = "9px " + P.mono; g.fillStyle = K.t4; g.textAlign = "center";
+        g.fillText("wifi", lerp(a.x, b.x, 0.58), lerp(a.y, b.y, 0.5) + 10);
+        phoneShell(g, K, L.px, L.py, L.phW, L.phH);
+      } else {
+        g.font = "9px " + P.mono; g.fillStyle = K.t4; g.textAlign = "left";
+        g.fillText("phone · wifi →", L.bx + 2, L.by - 16);
+      }
       // bridge: a small metal box with ports
       shadowUnder(g, L.bx + L.brW / 2, L.by + L.brH + 4, L.brW * 1.1, 5);
       var bg = g.createLinearGradient(0, L.by, 0, L.by + L.brH);
@@ -421,30 +441,31 @@
       g.fillStyle = RL.glass;
       g.fillRect(L.bx + L.brW - 7, L.by + L.brH * 0.28, 4, 6);
       g.fillRect(L.bx + L.brW - 7, L.by + L.brH * 0.58, 4, 6);
-      g.font = (L.narrow ? "9.5px " : "10.5px ") + P.mono; g.fillStyle = K.text; g.textAlign = "center";
+      g.font = (L.compact ? "9.5px " : "10.5px ") + P.mono; g.fillStyle = K.text; g.textAlign = "center";
       g.fillText("BRIDGE", L.bx + L.brW / 2, L.by + L.brH * 0.36);
-      g.font = (L.narrow ? "8.5px " : "9px ") + P.mono; g.fillStyle = K.t3;
+      g.font = (L.compact ? "8.5px " : "9px ") + P.mono; g.fillStyle = K.t3;
       g.fillText("pi · dongle", L.bx + L.brW / 2, L.by + L.brH * 0.68);
-      // usb path
+      // usb path, label tucked at the monitor end
       g.strokeStyle = K.acc2; g.lineWidth = 1.3; g.globalAlpha = 0.7;
       g.beginPath(); g.moveTo(L.u0.x, L.u0.y);
       g.bezierCurveTo(L.u0.x + 40, L.u0.y - 14, L.u1.x - 40, L.u1.y - 8, L.u1.x, L.u1.y); g.stroke();
       g.globalAlpha = 1;
-      g.font = "9px " + P.mono; g.fillStyle = K.t4; g.textAlign = "center";
-      g.fillText(L.narrow ? "USB HID" : "USB · a real keyboard", (L.u0.x + L.u1.x) / 2, L.u0.y - 18);
-      // hdmi path
+      g.font = "9px " + P.mono; g.fillStyle = K.t4; g.textAlign = "right";
+      g.fillText(L.compact ? "USB HID" : "USB · a real keyboard", L.u1.x - 2, L.u1.y - 15);
+      // hdmi path, label tucked at the bridge end
       g.strokeStyle = K.t4; g.lineWidth = 1.1; g.setLineDash([4, 4]);
       g.beginPath(); g.moveTo(L.h0.x, L.h0.y);
       g.bezierCurveTo(L.h0.x - 50, L.h0.y + 14, L.h1.x + 40, L.h1.y + 22, L.h1.x, L.h1.y); g.stroke();
       g.setLineDash([]);
-      g.fillText(L.narrow ? "HDMI" : "HDMI capture · the eyes", (L.h0.x + L.h1.x) / 2 + 10, L.h0.y + 26);
+      g.textAlign = "center";
+      g.fillText(L.compact ? "HDMI capture" : "HDMI capture · the eyes", (L.h0.x + L.h1.x) / 2, L.h1.y + 26);
       // the target: a real monitor showing the classic blue BIOS
       monitorShell(g, K, L.mx, L.my, L.moW, L.moH);
       biosBox(g, L.mx + 8, L.my + 8, L.moW - 16, L.moH - 16,
-        L.narrow ? "BIOS SETUP" : "BIOS SETUP UTILITY",
-        L.narrow ? null : "↑↓: Select   Enter: Boot");
+        L.moW < 190 ? "BIOS SETUP" : "BIOS SETUP UTILITY",
+        L.moW < 190 ? null : "↑↓: Select   Enter: Boot");
       g.font = "9px " + P.mono; g.fillStyle = K.t4; g.textAlign = "center";
-      g.fillText(L.narrow ? "no OS needed" : "no OS · nothing runs here", L.mx + L.moW / 2, L.my + L.moH + 26);
+      g.fillText(L.compact ? "no OS needed" : "no OS · nothing runs here", L.mx + L.moW / 2, L.my + L.moH + 26);
     }
     return function (t, dt) {
       var D = dim(), W = D.W, H = D.H, K = DK, L = lay(W, H);
@@ -459,30 +480,30 @@
         else flash = 1;
         si = (si + 1) % SEQ.length;
       }
-      // bridge LED heartbeat
       glowDot(c, K.acc, L.bx + 9, L.by + 9, 1.6 + 0.5 * Math.sin(t * 3));
-      // byte chip on the usb path
-      var q = cubic(L.u0, { x: L.u0.x + 40, y: L.u0.y - 14 }, { x: L.u1.x - 40, y: L.u1.y - 8 }, L.u1, ez(p));
+      var pp = ez(p);
+      var q = cubic(L.u0, { x: L.u0.x + 40, y: L.u0.y - 14 }, { x: L.u1.x - 40, y: L.u1.y - 8 }, L.u1, pp);
+      c.globalAlpha = clamp(Math.min(pp / 0.08, (1 - pp) / 0.12, 1), 0, 1);
       chipBox(c, K, q.x, q.y, SEQ[si].code, 9.5);
-      // capture frames flowing back
+      c.globalAlpha = 1;
       for (var k = 0; k < 3; k++) {
         var fp = ((t * 0.35 + k / 3) % 1);
         var fq = cubic(L.h0, { x: L.h0.x - 50, y: L.h0.y + 14 }, { x: L.h1.x + 40, y: L.h1.y + 22 }, L.h1, fp);
         c.fillStyle = K.t3; c.globalAlpha = 0.8;
         c.fillRect(fq.x - 2.5, fq.y - 2, 5, 4); c.globalAlpha = 1;
       }
-      // BIOS rows over the blue
-      var bx2 = L.mx + 8, bw2 = L.moW - 16;
-      var tx = bx2 + 12, ty = L.my + 8 + (L.narrow ? 26 : 30);
-      var rstep = L.narrow ? 14 : 17, fs = L.narrow ? 8.5 : 9.5;
+      var bw2 = L.moW - 16;
+      var small = L.moW < 190;
+      var tx = L.mx + (small ? 14 : 18), ty = L.my + 8 + (small ? 26 : 30);
+      var rstep = small ? 14 : 17, fs = small ? 8.5 : 9.5;
       for (var r = 0; r < ROWS.length; r++) {
         var ry = ty + r * rstep;
         if (r === hl) {
           c.fillStyle = RL.bios.sel;
-          c.fillRect(tx - 4, ry - 6.5, bw2 - 26, 13);
+          c.fillRect(tx - 4, ry - 6.5, bw2 - (small ? 22 : 32), 13);
           if (flash > 0) {
             c.strokeStyle = "#ffffff"; c.globalAlpha = flash; c.lineWidth = 1;
-            c.strokeRect(tx - 4, ry - 6.5, bw2 - 26, 13); c.globalAlpha = 1;
+            c.strokeRect(tx - 4, ry - 6.5, bw2 - (small ? 22 : 32), 13); c.globalAlpha = 1;
           }
         }
         mono(c, fs, r === hl ? RL.bios.selTxt : RL.bios.txt, "left");
@@ -539,7 +560,7 @@
       if ((t * 2 | 0) % 2 === 0) c.fillRect(23 + c.measureText(loop.typed).width, 19, 5.5, 11);
       if (loop.mode === "type" && loop.flight) {
         c.globalAlpha = 1 - loop.p;
-        glowDot(c, K.acc, W - 20, H - 26, 2.4);
+        glowDot(c, K.acc, W - 20, H - 30, 1.7);
         c.globalAlpha = 1;
       }
     };
@@ -634,35 +655,36 @@
 
   /* a real slide on a projector white, notes beside, tap to advance */
   SIG["uc-present"] = function (c, dim, S) {
+    /* a slide is white in real life: fixed light surface in both themes */
     var slide = 0, tapT = -9;
-    function lay(W, H) { return { sw: Math.min(W * 0.46, 118), sh: H - 20 }; }
+    function lay(W, H) { return { sw: Math.min(W * 0.46, 118), sh: H - 22 }; }
     function drawShell(g, W, H) {
       var L = lay(W, H);
-      shadowUnder(g, L.sw / 2, L.sh + 8, L.sw);
+      shadowUnder(g, L.sw / 2, 4 + L.sh + 5, L.sw);
       g.fillStyle = "#f4f4f6"; g.strokeStyle = "#c9c9d2"; g.lineWidth = 1;
       rr(g, 0, 4, L.sw, L.sh, 5); g.fill(); g.stroke();
-      // slide content: title and a small bar chart
-      g.fillStyle = "#3a3a44"; g.fillRect(10, 13, L.sw * 0.55, 4.5);
-      g.fillStyle = "#b9b9c2"; g.fillRect(10, 22, L.sw * 0.38, 3);
-      var bx = 12, bw = (L.sw - 34) / 3;
-      var hs = [0.35, 0.62, 0.88];
+      g.fillStyle = "#3a3a44"; g.fillRect(10, 12, L.sw * 0.55, 4);
+      g.fillStyle = "#b9b9c2"; g.fillRect(10, 20, L.sw * 0.38, 2.5);
+      var baseY = 4 + L.sh - 9, maxH = baseY - 30;
+      var bx = 12, bw = (L.sw - 46) / 3;
+      var hs = [0.4, 0.65, 0.92];
       for (var i = 0; i < 3; i++) {
         g.fillStyle = i === 2 ? "#3ec877" : "#c2c2cc";
-        var bh = (L.sh - 48) * hs[i];
-        g.fillRect(bx + i * (bw + 5), L.sh - 8 - bh, bw, bh);
+        var bh = maxH * hs[i];
+        g.fillRect(bx + i * (bw + 5), baseY - bh, bw, bh);
       }
       g.strokeStyle = "#d8d8de"; g.lineWidth = 1;
-      g.beginPath(); g.moveTo(10, L.sh - 7.5); g.lineTo(L.sw - 10, L.sh - 7.5); g.stroke();
-      // notes column on the card
+      g.beginPath(); g.moveTo(10, baseY + 0.5); g.lineTo(L.sw - 10, baseY + 0.5); g.stroke();
       var nx = L.sw + 18;
       g.font = "8.5px " + P.mono; g.fillStyle = P.t4; g.textAlign = "left"; g.textBaseline = "middle";
-      g.fillText("NOTES", nx, 14);
+      g.fillText("NOTES", nx, 12);
       g.strokeStyle = P.t3; g.lineWidth = 2; g.lineCap = "round";
-      g.beginPath(); g.moveTo(nx, 28); g.lineTo(nx + (W - nx - 14) * 0.92, 28); g.stroke();
+      g.beginPath(); g.moveTo(nx, 26); g.lineTo(nx + (W - nx - 14) * 0.92, 26); g.stroke();
       g.strokeStyle = P.border; g.lineWidth = 1.6;
-      g.beginPath(); g.moveTo(nx, 41); g.lineTo(nx + (W - nx - 14) * 0.58, 41); g.stroke();
-      g.beginPath(); g.moveTo(nx, 54); g.lineTo(nx + (W - nx - 14) * 0.46, 54); g.stroke();
-      g.fillText("tap → next", nx + 26, H - 12);
+      g.beginPath(); g.moveTo(nx, 38); g.lineTo(nx + (W - nx - 14) * 0.58, 38); g.stroke();
+      g.beginPath(); g.moveTo(nx, 50); g.lineTo(nx + (W - nx - 14) * 0.46, 50); g.stroke();
+      g.fillStyle = P.t4;
+      g.fillText("tap → next", nx + 26, H - 10);
     }
     return function (t) {
       var D = dim(), W = D.W, H = D.H, L = lay(W, H);
@@ -671,18 +693,17 @@
       var per = 2.6, cur = Math.floor(t / per);
       if (cur !== slide) { slide = cur; tapT = t; }
       var k = clamp((t - tapT) / 0.35, 0, 1);
-      // page number, bottom right of the slide, ticks up with a little rise
-      mono(c, 10.5, "#3a3a44", "right");
-      c.save(); c.globalAlpha = 0.25 + 0.75 * k;
-      c.fillText(String(12 + slide), L.sw - 9, L.sh - 4 - (1 - k) * 4);
+      mono(c, 9, "#8f8fa0", "right");
+      c.save(); c.globalAlpha = 0.3 + 0.7 * k;
+      c.fillText(String(12 + slide), L.sw - 8, 15 - (1 - k) * 3);
       c.restore();
       var nx = L.sw + 18;
       var rip = t - tapT;
       if (rip < 0.5 && rip >= 0) {
         c.strokeStyle = P.acc; c.globalAlpha = 1 - rip * 2;
-        c.beginPath(); c.arc(nx + 12, H - 12, 3 + rip * 16, 0, TAU); c.stroke(); c.globalAlpha = 1;
+        c.beginPath(); c.arc(nx + 12, H - 10, 3 + rip * 16, 0, TAU); c.stroke(); c.globalAlpha = 1;
       }
-      c.fillStyle = P.acc; c.beginPath(); c.arc(nx + 12, H - 12, 2.4, 0, TAU); c.fill();
+      c.fillStyle = P.acc; c.beginPath(); c.arc(nx + 12, H - 10, 2.4, 0, TAU); c.fill();
     };
   };
 
@@ -746,7 +767,10 @@
       }
       cursorArrow(c, cx, cy, "#fff");
       var call = PH[pi].call;
-      if (call) chipBox(c, P, L.sw + 14 + 34, H / 2, call, 8.5);
+      if (call) {
+        var strip = W - L.sw;
+        chipBox(c, P, L.sw + strip / 2 + 2, H / 2, call, strip < 86 ? 7.5 : 8.5);
+      }
     };
   };
 
@@ -768,8 +792,8 @@
       c.clearRect(0, 0, W, H);
       c.drawImage(S.shell(drawShell), 0, 0, W, H);
       var kioskOn = (t % 6) > 3;
-      mono(c, 8, K.t4, "right");
-      c.fillText((3 + (kioskOn ? 1 : 0)) + "/4 up", L.pw - 10, 11.5);
+      mono(c, 8, K.t4, "left");
+      c.fillText((3 + (kioskOn ? 1 : 0)) + "/4 up", 122, 11.5);
       var n = ROWS.length, top = 24, step = (L.ph - 28) / n;
       for (var i = 0; i < n; i++) {
         var r = ROWS[i];
