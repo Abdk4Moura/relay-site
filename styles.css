@@ -394,3 +394,11 @@ section{ position:relative; }
 @media (max-width:700px){
   .mode-art{ padding:16px; }
 }
+
+/* ---- app screenshots ---- */
+.phones{ display:flex; justify-content:center; align-items:flex-end; gap:clamp(14px,3vw,40px); margin-top:14px; flex-wrap:nowrap; }
+.phone{ width:clamp(150px,21vw,212px); border-radius:28px; padding:6px; background:linear-gradient(160deg,var(--e3),var(--e1));
+  border:1px solid var(--border-hi); box-shadow:var(--sh-3); flex:0 0 auto; }
+.phone img{ display:block; width:100%; border-radius:22px; }
+.phone-lead{ width:clamp(172px,25vw,244px); }
+@media (max-width:600px){ .phones{ gap:0; } .phones .phone:not(.phone-lead){ display:none; } }
