@@ -18,6 +18,21 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%2365EA92'/><rect x='11' y='11' width='10' height='10' rx='3' fill='%230E0E12'/></svg>" />
 <link rel="stylesheet" href="styles.css" />
 <script src="app.js"></script>
+<style>
+  /* page-local: numbered step headings for the bridge build guide */
+  .docs-main h4.step{
+    font-family: var(--font-mono);
+    font-size: 13px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 30px 0 10px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border-soft);
+    scroll-margin-top: 90px;
+  }
+  .docs-main em{ color: var(--text-1, var(--text-2)); font-style: italic; }
+</style>
 </head>
 <body>
 
@@ -177,10 +192,65 @@
         <p>Register many bridges and receivers into one directory, assign roles, and turn on the audit log.</p>
       </a>
 
-      <h3 id="bridge">Build the bridge</h3>
-      <p>The bridge is any Linux board with a USB gadget mode and a free USB port for a capture card. A Raspberry Pi Zero 2 W or a Pi 4 both work. Flash the firmware image, then point it at the target.</p>
-      <div class="codeblock"><span class="c"># on the Pi, after flashing the Relay bridge image</span><br/>relay-bridge pair <span class="c"># shows a code to enter in the phone app</span><br/>relay-bridge status<br/><span class="g">video: capture ok · 1080p60</span><br/><span class="g">hid: usb gadget attached</span></div>
-      <p>Plug the capture card into the target's HDMI out, and the gadget port into one of the target's USB ports. The target sees a monitor and a keyboard. Nothing else.</p>
+      <h3 id="bridge">Build the out-of-band bridge</h3>
+      <p>This is the full do-it-yourself build. By the end you will have a Raspberry Pi that appears to a target machine as an ordinary USB keyboard and mouse, captures that machine's HDMI output, and lets your phone drive it over WiFi. Everything below is plain Linux: a USB gadget through configfs and libcomposite, and video through V4L2 and ffmpeg. You can build it from a stock Raspberry Pi OS image without the prebuilt firmware.</p>
+
+      <h4 class="step">1 · What it is and why</h4>
+      <p>The bridge is the <em>body</em> of out-of-band control. In App mode a receiver runs inside a booted, logged-in OS. But there are places no software can live: a BIOS or UEFI setup screen, a boot menu, a full-disk-encryption password prompt, a frozen login screen, a smart TV, or a box whose OS has died. Nothing on the target can run your code, so the control has to come from <em>outside</em> the target entirely.</p>
+      <p>The Pi is that outside. Your phone talks to the Pi over WiFi. The Pi does two physical things to the target: it pretends to be a USB keyboard and mouse plugged into a USB port, and it watches the target's screen through an HDMI capture dongle. To the target, that is just a keyboard and a monitor cable. Firmware accepts a USB keyboard natively, before any operating system exists, which is exactly why this reaches the BIOS.</p>
+      <div class="callout"><p>The Pi is the hands and eyes; your phone is the brain. The target never runs Relay and never knows the Pi is anything but human-attached peripherals.</p></div>
+
+      <h4 class="step">2 · Parts list</h4>
+      <p>Buy these before you start. The two parts that matter most are the Pi (it must support USB gadget mode) and the capture dongle (it must be a UVC device).</p>
+      <ul>
+        <li><strong>A Raspberry Pi with USB OTG / gadget support.</strong> A <strong>Pi Zero 2 W</strong> is ideal: its micro-USB data port is wired straight to the SoC USB and does gadget mode natively, and it has WiFi. A <strong>Pi 4</strong> also works, but you must use its single <strong>USB-C</strong> port as the gadget port (the four USB-A ports are host-only). The Pi 3 and most Pi-clone boards cannot do gadget mode on a useful port; check the board before buying.</li>
+        <li><strong>A microSD card</strong>, 16 GB or larger, for Raspberry Pi OS.</li>
+        <li><strong>An HDMI-to-USB capture dongle, UVC class.</strong> The common "MS2109" style USB 2.0 sticks are UVC and cost a few dollars. UVC matters: it means Linux exposes it as a standard <span class="mono">/dev/video0</span> with no driver to install. Avoid anything that ships a Windows-only capture app, since those are rarely UVC.</li>
+        <li><strong>Cabling.</strong> An HDMI cable from the <em>target's</em> HDMI <em>out</em> into the capture dongle, and a USB cable from the Pi's <em>gadget</em> port into one of the target's USB ports. On the Pi Zero 2 W that gadget cable is micro-USB; on the Pi 4 it is USB-C. The gadget cable carries both the HID data and bus power, so the target also powers the Pi, which is convenient at a BIOS where the Pi has no other supply.</li>
+      </ul>
+      <div class="callout"><p>Test the dongle before you trust it. Cheap UVC capture sticks were built for game consoles at clean 1080p. A BIOS often outputs odd low resolutions (640x480, 720x400 text modes) and changes mode several times during POST. Some dongles drop the signal or hand you a black frame on those modes. Verify yours holds a picture through a real power-on before you rely on it for a job. See <a href="#capture">Capture that survives POST</a> for the tested list.</p></div>
+
+      <h4 class="step">3 · The HID gadget</h4>
+      <p>This is the half that lets the Pi type. Linux can present a USB device to whatever it is plugged into using the gadget subsystem. You build a composite gadget with two HID functions, a keyboard and a mouse, each with its own report descriptor, then bind it to the USB device controller (UDC). After this, plugging the Pi's gadget port into the target makes the target enumerate a keyboard and a mouse.</p>
+      <p>First, enable the device-tree overlay and the modules. On a Pi Zero 2 W add the OTG overlay to the boot config and load libcomposite at boot.</p>
+      <div class="codeblock"><span class="c"># /boot/firmware/config.txt  (or /boot/config.txt on older images)</span><br/>dtoverlay=dwc2<br/><br/><span class="c"># /etc/modules</span><br/>dwc2<br/>libcomposite</div>
+      <p>Now create the gadget under configfs. Run this once at boot (a systemd unit or <span class="mono">/etc/rc.local</span>). The gadget lives entirely in the filesystem at <span class="mono">/sys/kernel/config/usb_gadget/</span>; you create it by making directories and writing files.</p>
+      <div class="codeblock"><span class="c">#!/bin/bash</span><br/>modprobe libcomposite<br/>cd /sys/kernel/config/usb_gadget/<br/>mkdir -p relay &amp;&amp; cd relay<br/><br/><span class="c"># identify as a generic composite HID device</span><br/>echo 0x1d6b &gt; idVendor      <span class="c"># Linux Foundation</span><br/>echo 0x0104 &gt; idProduct     <span class="c"># Multifunction composite</span><br/>echo 0x0100 &gt; bcdDevice<br/>echo 0x0200 &gt; bcdUSB         <span class="c"># USB 2.0</span><br/>mkdir -p strings/0x409<br/>echo "relay-bridge"   &gt; strings/0x409/serialnumber<br/>echo "Relay"          &gt; strings/0x409/manufacturer<br/>echo "Relay HID Bridge" &gt; strings/0x409/product<br/><br/>mkdir -p configs/c.1/strings/0x409<br/>echo "HID" &gt; configs/c.1/strings/0x409/configuration<br/>echo 250  &gt; configs/c.1/MaxPower</div>
+      <p>Add the keyboard function. The report descriptor below is the standard boot keyboard: one byte of modifiers, one reserved byte, and six key slots. This is the descriptor a BIOS expects, so it works before any OS loads.</p>
+      <div class="codeblock"><span class="c"># keyboard HID function</span><br/>mkdir -p functions/hid.kbd<br/>echo 1 &gt; functions/hid.kbd/protocol        <span class="c"># 1 = keyboard</span><br/>echo 1 &gt; functions/hid.kbd/subclass       <span class="c"># 1 = boot interface</span><br/>echo 8 &gt; functions/hid.kbd/report_length  <span class="c"># 8-byte reports</span><br/><span class="c"># write the 63-byte boot-keyboard report descriptor</span><br/>echo -ne \x05\x01\x09\x06\xa1\x01\x05\x07\x19\xe0\x29\xe7\x15\x00\x25\x01\x75\x01\x95\x08\x81\x02\x95\x01\x75\x08\x81\x03\x95\x05\x75\x01\x05\x08\x19\x01\x29\x05\x91\x02\x95\x01\x75\x03\x91\x03\x95\x06\x75\x08\x15\x00\x25\x65\x05\x07\x19\x00\x29\x65\x81\x00\xc0 &gt; functions/hid.kbd/report_desc</div>
+      <p>Add the mouse function. This descriptor reports three buttons plus relative X and Y, which is all you need to move the pointer and click.</p>
+      <div class="codeblock"><span class="c"># mouse HID function</span><br/>mkdir -p functions/hid.mouse<br/>echo 2 &gt; functions/hid.mouse/protocol       <span class="c"># 2 = mouse</span><br/>echo 1 &gt; functions/hid.mouse/subclass<br/>echo 4 &gt; functions/hid.mouse/report_length  <span class="c"># buttons + dx + dy + wheel</span><br/>echo -ne \x05\x01\x09\x02\xa1\x01\x09\x01\xa1\x00\x05\x09\x19\x01\x29\x03\x15\x00\x25\x01\x95\x03\x75\x01\x81\x02\x95\x01\x75\x05\x81\x03\x05\x01\x09\x30\x09\x31\x09\x38\x15\x81\x25\x7f\x75\x08\x95\x03\x81\x06\xc0\xc0 &gt; functions/hid.mouse/report_desc</div>
+      <p>Link both functions into the config and bind the gadget to the UDC. Binding is the moment the Pi goes "live" on the USB bus; the target enumerates it instantly.</p>
+      <div class="codeblock">ln -s functions/hid.kbd   configs/c.1/<br/>ln -s functions/hid.mouse configs/c.1/<br/><br/><span class="c"># bind to the first available USB device controller</span><br/>ls /sys/class/udc &gt; UDC<br/><span class="g"># now /dev/hidg0 is the keyboard, /dev/hidg1 is the mouse</span></div>
+      <p>After binding you have two character devices. Writing an 8-byte report to <span class="mono">/dev/hidg0</span> sends a keystroke; writing a 4-byte report to <span class="mono">/dev/hidg1</span> moves or clicks the mouse. A quick sanity check, with the gadget cable in a target you can watch: this taps the <em>a</em> key (USB usage 0x04) and releases it.</p>
+      <div class="codeblock"><span class="c"># press 'a' (no modifiers), then release all keys</span><br/>printf '\\0\\0\\x04\\0\\0\\0\\0\\0' &gt; /dev/hidg0<br/>printf '\\0\\0\\0\\0\\0\\0\\0\\0'   &gt; /dev/hidg0</div>
+
+      <h4 class="step">4 · Capturing the screen</h4>
+      <p>This is the half that lets the Pi see. Plug the HDMI from the target's output into the capture dongle, and the dongle into one of the Pi's USB host ports (on the Pi Zero 2 W that is the second micro-USB port through an OTG adapter; on the Pi 4 any USB-A port). Because the dongle is UVC, it shows up as a V4L2 device with no driver work.</p>
+      <div class="codeblock"><span class="c"># confirm the dongle enumerated as a V4L2 capture device</span><br/>v4l2-ctl --list-devices<br/>v4l2-ctl -d /dev/video0 --list-formats-ext  <span class="c"># what resolutions/timings it offers</span></div>
+      <p>Pull frames with ffmpeg. Reading from <span class="mono">/dev/video0</span> as a <span class="mono">v4l2</span> input gives you the live target screen; encode it to MJPEG so each frame stands alone and the phone can show video as fast as the link allows.</p>
+      <div class="codeblock"><span class="c"># grab the target's screen as an MJPEG stream</span><br/>ffmpeg -f v4l2 -framerate 30 -video_size 1280x720 \<br/>&nbsp;&nbsp;-i /dev/video0 -f mjpeg -q:v 5 pipe:1<br/><br/><span class="c"># or one still frame, useful for testing the capture path</span><br/>ffmpeg -f v4l2 -i /dev/video0 -frames:v 1 /tmp/target.jpg</div>
+      <div class="callout"><p>If the still is black or garbled at a BIOS but fine in a booted OS, the dongle is choking on the firmware's video mode, not on your wiring. That is the single most common failure in this whole build. Drop to <span class="mono">--video_size 640x480</span> and let ffmpeg accept whatever timing the dongle reports.</p></div>
+
+      <h4 class="step">5 · Running the Relay bridge on the Pi</h4>
+      <p>You now have the two raw capabilities: write to <span class="mono">/dev/hidg0</span> and <span class="mono">/dev/hidg1</span> to act, read <span class="mono">/dev/video0</span> to see. The bridge process glues them to the network. It accepts input from your phone over WiFi or Tailscale, translates each event into the right HID report and writes it to the gadget, and serves the captured frames back the other way. This is the same shape as the App-mode receiver, which turns wire-protocol key and pointer frames into synthetic input; the only difference is that here the "input backend" is the USB HID gadget instead of uinput, and the screen comes from the capture dongle instead of a framebuffer grab.</p>
+      <p>If you are running the prebuilt firmware image, the <span class="mono">relay-bridge</span> service is already wired to those devices and starts on boot. If you built the gadget yourself by hand, point the bridge at the two HID devices and the video node:</p>
+      <div class="codeblock"><span class="c"># the bridge maps wire-protocol frames to HID reports and serves video</span><br/>relay-bridge run \<br/>&nbsp;&nbsp;--keyboard /dev/hidg0 \<br/>&nbsp;&nbsp;--mouse&nbsp;&nbsp;&nbsp;&nbsp;/dev/hidg1 \<br/>&nbsp;&nbsp;--video&nbsp;&nbsp;&nbsp;&nbsp;/dev/video0 \<br/>&nbsp;&nbsp;--listen&nbsp;&nbsp;&nbsp;tailscale0   <span class="c"># or your LAN interface</span></div>
+      <p>It speaks the same open wire protocol as everything else (see <a href="#protocol">Wire protocol</a>): a <span class="mono">key</span> frame becomes an 8-byte keyboard report, a <span class="mono">pointer</span> frame becomes a 4-byte mouse report, and a <span class="mono">video.req</span> frame turns on the MJPEG feed.</p>
+
+      <h4 class="step">6 · Pair the phone and drive the target</h4>
+      <p>With the gadget bound, the capture running, and the bridge listening, pair your phone. The bridge prints a code; enter it once in the app.</p>
+      <div class="codeblock"><span class="c"># on the Pi</span><br/>relay-bridge pair <span class="c"># shows a code to enter in the phone app</span><br/>relay-bridge status<br/><span class="g">video: capture ok · 720p30</span><br/><span class="g">hid:&nbsp;&nbsp;&nbsp;keyboard + mouse bound to UDC</span><br/><span class="g">net:&nbsp;&nbsp;&nbsp;listening on tailscale0</span></div>
+      <p>Now plug the two cables into the target: capture dongle to the target's HDMI out, Pi gadget port to a target USB port. Power on the target. Because the Pi is a boot-class USB keyboard, you can hammer the BIOS hotkey (Del, F2, F12, whatever your board uses) from the phone the instant the target powers on, navigate the firmware menus with the arrow keys, and watch every POST screen on the phone through the capture feed. No OS, no agent, no cooperation from the target required.</p>
+
+      <h4 class="step">7 · Honest caveats</h4>
+      <ul>
+        <li><strong>Capture dongles are the weak link.</strong> Cheap UVC sticks can miss or mangle the low-resolution, fast-changing video a BIOS emits. Test through a real power-on, keep a known-good dongle for firmware work, and consult the compatibility list before buying.</li>
+        <li><strong>You spend one target USB port.</strong> The gadget needs a real USB port on the target. On a machine with few ports, plan for it.</li>
+        <li><strong>You need physical access once.</strong> Somebody has to plug in two cables at the target: HDMI out to the dongle, USB to the gadget port. There is no way around the initial wiring.</li>
+        <li><strong>After that, you can be remote.</strong> Once the Pi is wired and on your network, the operator does not have to be in the room. Put the Pi on Tailscale and you can sit at a BIOS screen from anywhere, which is the whole point of leaving a bridge installed on a machine you cannot otherwise reach.</li>
+        <li><strong>It is genuinely a keyboard, for better and worse.</strong> The target trusts it completely, which is the power of the approach and also why you should only attach a bridge to machines you are authorised to control.</li>
+      </ul>
 
       <h3 id="capture">Capture that survives POST</h3>
       <p>Many cheap capture sticks only initialise once the source sends a clean signal, which means they miss the BIOS entirely. For out-of-band work you want a card that locks signal early and tolerates resolution changes during boot. The firmware repo keeps a community-tested compatibility table.</p>

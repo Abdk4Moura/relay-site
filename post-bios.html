@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Relay · We drove a BIOS screen from a phone</title>
+<meta name="description" content="Relay turns a phone into a keyboard, mouse, and HID controller for any machine, with nothing installed on the target. How we reached the firmware, and why it matters for agents." />
+<meta property="og:title" content="We drove a BIOS screen from a phone" />
+<meta property="og:description" content="Relay turns a phone into a keyboard, mouse, and HID controller for any machine, with nothing installed on the target. How we reached the firmware, and why it matters for agents." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://relay.autumated.com/post-bios.html" />
+<meta property="og:image" content="https://relay.autumated.com/og.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:image" content="https://relay.autumated.com/og.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%2365EA92'/><rect x='11' y='11' width='10' height='10' rx='3' fill='%230E0E12'/></svg>" />
+<link rel="stylesheet" href="styles.css" />
+<script src="app.js"></script>
+<style>
+  /* page-local styles for the long-form post, kept out of styles.css */
+  .post-wrap{ max-width:720px; margin:0 auto; padding:0 28px; }
+  .post-head{ padding:64px 0 8px; }
+  .post-meta{ display:flex; gap:14px; align-items:center; font-family:var(--font-mono); font-size:12.5px; color:var(--text-3); margin-bottom:18px; }
+  .post-meta .dot{ width:3px; height:3px; border-radius:50%; background:var(--text-3); opacity:.6; }
+  .post-head h1{ font-size:clamp(32px,4.6vw,50px); line-height:1.08; max-width:16ch; margin:0; }
+  .post-body{ padding:34px 0 8px; }
+  .post-body h2{ font-size:25px; margin:42px 0 12px; }
+  .post-body h2:first-child{ margin-top:8px; }
+  .post-body p{ color:var(--text-2); margin-bottom:16px; font-size:17px; line-height:1.62; }
+  .post-body ul{ margin:0 0 18px 20px; color:var(--text-2); }
+  .post-body li{ margin-bottom:9px; line-height:1.55; }
+  .post-body strong{ color:var(--text-1); font-weight:600; }
+  .post-body a{ color:var(--accent); text-decoration:none; border-bottom:1px solid color-mix(in srgb, var(--accent) 40%, transparent); }
+  .post-body a:hover{ border-bottom-color:var(--accent); }
+  .post-cta{ margin:40px 0 8px; padding:26px 28px; border:1px solid var(--line-2); border-radius:14px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .post-cta .t{ flex:1; min-width:240px; }
+  .post-cta .t .h{ font-family:var(--font-display); font-weight:600; font-size:18px; }
+  .post-back{ display:inline-flex; align-items:center; gap:7px; font-family:var(--font-mono); font-size:13px; color:var(--text-3); text-decoration:none; margin-top:42px; }
+  .post-back:hover{ color:var(--text-1); }
+  .post-back svg{ transform:rotate(180deg); }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap nav">
+    <a class="brand" href="index.html">
+      <span class="logo-mark"></span>
+      Relay
+    </a>
+    <nav class="nav-links">
+      <a href="use-cases.html">Use cases</a>
+      <a href="docs.html">Documentation</a>
+      <a href="pricing.html">Pricing</a>
+      <a href="blog.html" class="active">Blog</a>
+    </nav>
+    <div class="nav-spacer"></div>
+    <div class="nav-right">
+      <button class="theme-btn" data-theme-btn aria-label="Toggle theme"></button>
+      <a href="docs.html#download" class="btn sm">Download</a>
+    </div>
+    <button class="menu-btn" data-menu-btn aria-label="Menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+  </div>
+</header>
+<div class="mobile-menu" data-mobile-menu>
+  <a href="use-cases.html">Use cases</a>
+  <a href="docs.html">Documentation</a>
+  <a href="pricing.html">Pricing</a>
+  <a href="blog.html">Blog</a>
+  <a href="docs.html#download" class="btn primary">Download</a>
+</div>
+
+<article>
+  <div class="post-head">
+    <div class="post-wrap">
+      <div class="post-meta">
+        <span style="color:var(--accent);">Launch</span>
+        <span class="dot"></span>
+        <span>Jun 4, 2026</span>
+      </div>
+      <h1>We drove a BIOS screen from a phone.</h1>
+    </div>
+  </div>
+
+  <div class="post-body">
+    <div class="post-wrap">
+
+      <p>Remote desktop tools give up at the login screen. Every one of them needs something running inside a booted, logged-in operating system. The moment the OS is not there, the moment you are sitting at a BIOS, a boot menu, or a machine that just hung on a black screen, the tool you trust to reach a computer reaches nothing.</p>
+
+      <p>We wanted to go lower than that. So we built Relay, and last week we used a phone to step through a BIOS, change a boot order, and save and exit. Nothing was installed on the target. The target did not have an operating system to install into.</p>
+
+      <h2>What Relay is</h2>
+
+      <p>Relay turns a phone into a keyboard, mouse, and HID controller for any machine. There is nothing to install on the machine you are controlling. You pick it up, you point it at a target, and you type.</p>
+
+      <p>The piece that does the work is a small cross-platform receiver, and it injects real input at the lowest layer each platform offers:</p>
+
+      <ul>
+        <li><strong>Linux</strong> through the kernel's <span class="mono">uinput</span> device.</li>
+        <li><strong>Windows</strong> through <span class="mono">SendInput</span>.</li>
+        <li><strong>macOS</strong> through <span class="mono">CGEvent</span>.</li>
+      </ul>
+
+      <p>These are not scripted screenshots of input. They are the same events the kernel and the window server see when you press a physical key.</p>
+
+      <h2>How we know it works</h2>
+
+      <p>I do not trust an input library because the docs say it works. I trust it when I can read the event back off the other side. So that is what we did, on each platform, by different means.</p>
+
+      <p>On <strong>Linux</strong>, the path is verified end to end in CI. We inject events through <span class="mono">uinput</span>, then read them straight back off the kernel input device and assert that the bytes match what we sent. Every commit proves the keyboard works before it ships.</p>
+
+      <p>On <strong>Windows</strong>, we drove a live machine over an RDP session through a Tailscale tunnel and watched the keystrokes land in real time. A real desktop, a real network, real typing.</p>
+
+      <p>On <strong>macOS</strong>, we did not have a desktop display in front of us, so we proved it the honest way: we read the keystrokes off the wire as they were sent. The events were correct on the line.</p>
+
+      <p>Three platforms, three independent proofs. No hand-waving.</p>
+
+      <h2>The idea that turned out to matter</h2>
+
+      <p>Here is the part we did not expect to care about as much as we do now.</p>
+
+      <p>Software remote control fails wherever there is no software to run. But a person sitting at the machine does not have that problem. They use their hands and their eyes. So give the remote a body. <strong>HID for the hands. Video capture for the eyes.</strong> A small bridge taps the target's video through a capture card and presents itself to the target as a plain USB keyboard.</p>
+
+      <p>The target sees a monitor cable and a keyboard. That is all it can see. And because that is all it needs to see, this reaches places an in-band tool can never go: the login screen, the BIOS, a smart TV, a server whose OS is dead. This is remote control for the machines remote control can't reach.</p>
+
+      <p>That is the out-of-band capability, and it is the direction the BIOS demo points at. We wrote up the full method and what it means for hardware-level control in a separate piece, <a href="blog.html">Out-of-Band Computer Use</a>. If you want the deep technical version of the capture-and-emulate path, start there.</p>
+
+      <h2>What ships today, plainly</h2>
+
+      <p>I will be exact, because launch posts usually are not.</p>
+
+      <p>What you can use right now, on your own network, is <strong>keyboard, mouse, and HID control</strong> of a target, <strong>two-way file transfer</strong> between phone and machine, and a <strong>web panel</strong> to drive it all. That is real and it is in your hands today.</p>
+
+      <p>What is <strong>not</strong> shipped yet is live video streaming of the target's screen back to the phone. That is on the roadmap. The out-of-band BIOS rescue, the full eyes-and-hands experience over a capture card, is the proven direction, not a button you can press in the app this week. I would rather tell you that now than have you find out later.</p>
+
+      <h2>A body for agents</h2>
+
+      <p>The same thing that lets a phone drive a locked-out machine lets something else drive it too. Relay exposes its input and control as <strong>MCP tools</strong>, so a computer-use agent can act on a machine through the exact same path a person does.</p>
+
+      <p>That means an agent can operate a machine it could never be installed inside. A BIOS. A boot menu. An appliance with no shell. The agent asks for the screen and sends input. It does not care whether the target is a booted desktop or a box stuck at firmware. Giving agents a body that reaches real hardware is, to us, the most interesting thing here.</p>
+
+      <h2>It is open source</h2>
+
+      <p>Relay is GPLv3. The receiver is the thing that types on your machine, so you should be able to read exactly what it does. The two repos are <a href="https://github.com/Abdk4Moura/relay-desktop">relay-desktop</a> and <a href="https://github.com/Abdk4Moura/relay-hid">relay-hid</a>.</p>
+
+      <p>You can download the receiver and read the docs at <a href="https://relay.autumated.com">relay.autumated.com</a>. On your own network it is free. Pick it up, point it at a machine you are locked out of, and type.</p>
+
+      <div class="post-cta">
+        <div class="t">
+          <div class="h">Drive your own machine from your phone.</div>
+          <div class="muted" style="font-size:14.5px; margin-top:4px;">Download the open-source receiver and the docs. Free on your own network.</div>
+        </div>
+        <a href="https://relay.autumated.com/docs.html#download" class="btn primary sm">Download Relay<svg class="arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      </div>
+
+      <a class="post-back" href="blog.html"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Back to the blog</a>
+
+    </div>
+  </div>
+</article>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a class="brand" href="index.html">
+          <span class="logo-mark"></span>
+          Relay
+        </a>
+        <p>Remote control for the machines remote control can't reach.</p>
+      </div>
+      <div><h5>Product</h5><a href="use-cases.html">Use cases</a><a href="pricing.html">Pricing</a><a href="docs.html#download">Download</a></div>
+      <div><h5>Develop</h5><a href="docs.html">Documentation</a><a href="docs.html#guides">DIY guides</a><a href="docs.html#protocol">Wire protocol</a></div>
+      <div><h5>Company</h5><a href="blog.html">Blog</a><a href="blog.html">Research</a></div>
+    </div>
+    <div class="footer-bottom">
+      <span class="mono">relay.autumated.com</span>
+      <span class="mono">© 2026 Relay</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
